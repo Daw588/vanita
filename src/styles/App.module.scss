@@ -1,0 +1,54 @@
+.window {
+	width: 500px;
+
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+
+	z-index: 99999;
+
+	background: #232527;
+	color: #bdbebe;
+	border: 1px solid #111214;
+	box-shadow: 5px 10px 8px rgba(0, 0, 0, 0.5);
+	border-radius: 4px;
+}
+
+.header {
+	width: 100%;
+	padding: 8px;
+
+	background: #191b1d;
+	color: #fff;
+	border-bottom: 1px solid #111214;
+
+	cursor: default;
+}
+
+.content {
+	display: flex;
+	flex-direction: column;
+	gap: 15px;
+	padding: 15px;
+
+	&::before, &::after {
+		display: none;
+		content: "";
+	}
+}
+
+.property {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 10px;
+}
+
+.controls {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+
+	gap: 15px;
+}

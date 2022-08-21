@@ -1,0 +1,8 @@
+body {
+	background: #232527;
+	color: #bdbebe;
+
+	display: flex;
+	flex-direction: row;
+	gap: 5px;
+}

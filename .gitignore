@@ -1,0 +1,21 @@
+# Temporary
+/build
+
+# Dependencies
+/node_modules
+
+# Security
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logging
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Lock
+yarn.lock
+package-lock.json

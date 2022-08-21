@@ -1,0 +1,36 @@
+{
+	"extends": [
+		"react-app"
+	],
+	"rules": {
+		"semi": ["error"],
+		"indent": ["error", "tab"],
+		"quotes": ["error", "double"],
+		"array-bracket-spacing": ["error", "never"],
+		"capitalized-comments": ["error"],
+		"prefer-const": ["error"],
+		"brace-style": ["error", "1tbs", {
+			"allowSingleLine": true
+		}],
+		"comma-spacing": ["error", {
+			"before": false,
+			"after": true
+		}],
+		"key-spacing": ["error", {
+			"afterColon": true,
+			"mode": "strict"
+		}],
+		"max-len": ["error", {
+			"code": 300
+		}],
+		"no-mixed-spaces-and-tabs": ["error"],
+		"no-trailing-spaces": ["error"],
+		"no-unused-vars": ["warn"],
+		"no-unused-labels": ["error"],
+		"no-unused-expressions": ["error"]
+	},
+	"ignorePatterns": [
+		"**/*.js",
+		"node_modules/**"
+	]
+}
