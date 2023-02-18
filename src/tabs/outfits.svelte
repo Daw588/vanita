@@ -5,12 +5,14 @@
 	import { onMount } from "svelte";
 	import Outfit from "../lib/outfit";
 	import Thumbnail from "../lib/thumbnail";
-	import LZString from "../lib/third-party/lz-string";
-	import * as util from "../lib/util";
+	//import LZString from "../lib/third-party/lz-string";
+	//import * as util from "../lib/util";
 	import GoGear from "svelte-icons/go/GoGear.svelte";
+	import LocalStorage from "../lib/local-storage";
+	import type { OutfitCreateData } from "../lib/outfit";
 
 	let outfits: Outfit[] = [];
-	let templateOutfitId = -1;
+	//let templateOutfitId = -1;
 	let outfitNameInput = "";
 	let thisUser: User;
 	let outfitsLoaded = false;
@@ -33,6 +35,10 @@
 	}
 	*/
 
+	const userOutfitsList = new LocalStorage<{
+		data: OutfitCreateData, thumbnailUrl: string
+	}[]>("outfit-list", []);
+
 	onMount(async () => {
 		// Get currently authenticated user
 		thisUser = await User.getCurrentUser();
@@ -48,7 +54,7 @@
 		saveOutfits();
 	}
 
-	function saveOutfits() {
+	async function saveOutfits() {
 		if (!outfitsLoaded) {
 			/*
 				Nothing has been loaded yet,
@@ -66,10 +72,11 @@
 			};
 		});
 
+		await userOutfitsList.save(outfitList);
+
+		/*
 		const uncompressed = JSON.stringify(outfitList);
 		const compressed = LZString.compress(uncompressed);
-		
-		/*
 		const decompressed = LZString.decompress(compressed);
 
 		const uncompressedBytes = util.stringToBytes(uncompressed);
@@ -89,21 +96,18 @@
 			Compression Ratio: ${compressionRatio.toFixed(2)}
 			Saved: ${Math.round(savedSpace)}%
 		`);
-		*/
 
 		localStorage.setItem("rwp-outfits", compressed);
+		*/
 	}
 
-	function loadOutfits() {
-		const compressed = localStorage.getItem("rwp-outfits");
-		if (!compressed) {
-			// Couldn't load, there is nothing to load
-			outfitsLoaded = true;
-			return;
-		}
+	async function loadOutfits() {
+		const outfitList = await userOutfitsList.load();
 
+		/*
 		const decompressed = LZString.decompress(compressed);
 		const outfitList = JSON.parse(decompressed);
+		*/
 
 		// Overwrite current data with loaded data
 		outfits = outfitList.map(outfitInfo => {

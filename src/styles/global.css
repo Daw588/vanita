@@ -30,6 +30,24 @@
 	border-radius: 5px;
 }
 
+#app-toggle {
+	position: fixed;
+	top: 100%;
+	left: 100px;
+	transform: translateY(-100%);
+	z-index: 9999;
+	padding: 6px;
+	padding-left: 8px;
+	padding-right: 8px;
+	cursor: pointer;
+	background: #232527;
+	color: #fff;
+	border: 1px solid #111214;
+	border-bottom: none;
+	border-top-left-radius: 8px;
+	border-top-right-radius: 8px;
+}
+
 #app .material-symbols-outlined {
 	font-variation-settings:
 		"FILL" 0,

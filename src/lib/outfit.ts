@@ -31,7 +31,7 @@ interface BodyScale {
 	bodyType: number
 }
 
-interface OutfitCreateData {
+export interface OutfitCreateData {
 	name: string,
 	bodyColors: BodyColors,
 	assetIds: number[],

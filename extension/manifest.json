@@ -1,21 +1,31 @@
 {
-	"name": "Roblox Web Panel",
-	"description": "RWP stands for Roblox web panel, it's a code snippet that you can run via developer console to try out early Roblox site features before they're officially out without any programming experience.",
-	"version": "1.0.0",
+	"name": "Vanita",
+	"description": "Enhances the Roblox website experience with extra functionality.",
+	"version": "2.0.0",
 	"manifest_version": 3,
-	"background": {
-		"service_worker": "background.js"
-	},
 	"permissions": [
-		"storage",
-		"activeTab",
-		"scripting",
-		"tabs"
+		"storage"
 	],
-	"action": {
-		"default_popup": "popup.html"
-	},
-	"host_permissions": [
+	"content_scripts": [
+		{
+			"matches": ["https://www.roblox.com/*"],
+			"js": ["embedded.js"]
+		}
+	],
+	"host_permissions":[
 		"https://www.roblox.com/*"
+	],
+	"icons": {
+		"128": "logo.png"
+	},
+	"web_accessible_resources": [
+		{
+			"resources": [
+				"logo.png"
+			],
+			"matches": [
+				"https://www.roblox.com/*"
+			]
+		}
 	]
 }

@@ -25,5 +25,8 @@ export default defineConfig({
 			port: 443,
 		},
 		port: 3000
+	},
+	build: {
+		outDir: "build"
 	}
 });

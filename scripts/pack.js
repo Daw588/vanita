@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import fsExtra from "fs-extra";
 import path from "node:path";
 import uglify from "uglify-js";
+import { zip } from "zip-a-folder";
 
 /**
  * Finds file with desired extension in a given directory.
@@ -20,8 +21,8 @@ async function getFilePathByExtension(directoryPath, extension) {
 
 // Paths to files needed to be packed
 const loaderJsPath = "loader.js";
-const indexJsPath = await getFilePathByExtension("dist/assets", ".js");
-const indexCssPath = await getFilePathByExtension("dist/assets", ".css");
+const indexJsPath = await getFilePathByExtension("build/assets", ".js");
+const indexCssPath = await getFilePathByExtension("build/assets", ".css");
 
 // Get raw contents
 let loaderJsRaw = await fs.readFile(loaderJsPath, { encoding: "utf-8" });
@@ -49,8 +50,6 @@ const indexJsMin = uglify.minify(indexJsRaw).code;
 */
 const finalCode = loaderJsMin + `(()=>{${indexJsMin}})()`;
 
-await fsExtra.emptyDir("dist");
-await fs.writeFile("dist/release.js", finalCode, { encoding: "utf-8" });
-
-// Create one for extension as well
-await fs.writeFile("extension/embedded.js", finalCode, { encoding: "utf-8" })
+await fsExtra.emptyDir("build");
+await fs.writeFile("extension/embedded.js", finalCode, { encoding: "utf-8" });
+await zip("extension", "build/release.zip");

@@ -2,6 +2,11 @@ const container = document.createElement("div");
 container.id = "app";
 document.body.appendChild(container);
 
+const toggleBtn = document.createElement("div");
+toggleBtn.id = "app-toggle";
+toggleBtn.textContent = "Vanita";
+document.body.appendChild(toggleBtn);
+
 const style = document.createElement("style");
 /*
 	Will be replaced with actual css by pack.js.
