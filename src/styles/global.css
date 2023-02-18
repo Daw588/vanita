@@ -1,0 +1,39 @@
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200");
+
+/*
+	Scope the CSS to our #app only,
+	this will prevent us from breaking
+	the site that we are running on.
+*/
+#app * {
+	box-sizing: border-box;
+
+	/* Use Roblox's site font */
+	font-family: "HCo Gotham SSm", "Helvetica Neue", "Helvetica", "Arial", "Lucida Grande", "sans-serif";
+}
+
+#app {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 9999;
+
+	display: flex;
+	flex-direction: column;
+
+	width: 700px;
+	height: 500px;
+
+	background: #232527;
+	color: #fff;
+	border: 1px solid #111214;
+	border-radius: 5px;
+}
+
+#app .material-symbols-outlined {
+	font-variation-settings:
+		"FILL" 0,
+		"wght" 400,
+		"GRAD" 0,
+		"opsz" 48
+}

@@ -4,11 +4,11 @@
 
 ## About :placard:
 
-RWP stands for Roblox web panel, it's a code snippet that you can run via developer console or the provided Google Chrome extension to try out early Roblox site features before they're officially out without any programming experience.
+RWP stands for Roblox web panel, it's a code snippet that you can run via developer console or through the provided browser extension to try out early Roblox site features and get extended functionality without any programming experience.
 
 ## Usage :customs:
 
-Both work well, however, installing browser extension will be better on the long run.
+Both methods work well, however, installing browser extension will be better on the long run.
 
 ### Extension Method :electric_plug:
 
@@ -34,7 +34,7 @@ Both work well, however, installing browser extension will be better on the long
 
 ![extension method showcase gif](/examples/console-method.gif)
 
-1. Go to [`extension/program.js`](extension/program.js)
+1. Go to [`dist/release.js`](dist/release.js)
 
 2. Click "Raw".
 
@@ -52,15 +52,13 @@ Both work well, however, installing browser extension will be better on the long
 
 ## Building :hammer:
 
-If you don't trust the [`extension/program.js`](extension/program.js) file *(I dont blame you if you do)*, you can build it yourself.
+If you don't trust the [`dist/release.js`](extension/release.js) file *(I dont blame you if you do)*, you can build it yourself.
 
 ### Requirements :passport_control:
 
 1. Installed NodeJS runtime environment.
 
 2. Installed NPM package manager.
-
-3. Installed Bash terminal.
 
 ### Instructions :notebook:
 
@@ -70,11 +68,9 @@ If you don't trust the [`extension/program.js`](extension/program.js) file *(I d
 
 3. Open terminal in the folder that you extracted.
 
-4. Run `npm i -g yarn` to install Yarn and wait until it's done.
+4. Run `npm install` to install dependencies that the project relies on and wait until it's done.
 
-5. Run `yarn install` to install dependencies that the project relies on and wait until it's done.
-
-6. Run `yarn build` to build the [`extension/program.js`](extension/program.js) file and wait until it's done.
+5. Run `npm run build` to build the [`dist/release.js`](dist/release.js) file and wait until it's done.
 
 ## Credits :medal_sports:
 

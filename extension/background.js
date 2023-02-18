@@ -14,7 +14,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info) => {
 				target: {
 					tabId: tab.id
 				},
-				files: ["program.js"]
+				files: ["embedded.js"]
 			});
 		}
 	});
