@@ -52,7 +52,7 @@ Both methods work well, however, installing browser extension will be better on 
 
 ## Building :hammer:
 
-If you don't trust the [`dist/release.js`](extension/release.js) file *(I dont blame you if you do)*, you can build it yourself.
+If you don't trust the [`dist/release.js`](dist/release.js) file *(I dont blame you if you do)*, you can build it yourself.
 
 ### Requirements :passport_control:
 
