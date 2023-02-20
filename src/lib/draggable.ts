@@ -43,8 +43,32 @@ export default class Draggable {
 	}
 
 	public updateWindowPosition() {
-		this.target.style.top = this.target.offsetTop - this.offY + "px";
-		this.target.style.left = this.target.offsetLeft - this.offX + "px";
+		let x = this.target.offsetLeft - this.offX;
+		let y = this.target.offsetTop - this.offY;
+
+		const viewportWidth = window.innerWidth;
+		const viewportHeight = window.innerHeight;
+
+		const targetStyle = window.getComputedStyle(this.target);
+		const targetWidth = parseFloat(targetStyle.width);
+		const targetHeight = parseFloat(targetStyle.height);
+
+		// Prevent the window from going out viewport horizontally
+		if (x < 0) {
+			x = 0;
+		} else if (x + targetWidth > viewportWidth) {
+			x = viewportWidth - targetWidth;
+		}
+
+		// Prevent the window from going out viewport vertically
+		if (y < 0) {
+			y = 0;
+		} else if (y + targetHeight > viewportHeight) {
+			y = viewportHeight - targetHeight;
+		}
+
+		this.target.style.left = x + "px";
+		this.target.style.top = y + "px";
 	}
 
 	get targetX() {
