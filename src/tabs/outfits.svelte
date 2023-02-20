@@ -16,6 +16,38 @@
 	let outfitNameInput = "";
 	let thisUser: User;
 	let outfitsLoaded = false;
+	let filteredOutfits: Outfit[] = [];
+
+	/*
+		Outfit search feature
+
+		It makes it easier for users to find
+		their outfit, as well as check whether
+		the outfit they are currently trying to
+		create has been already created before.
+	*/
+	$: if (outfitNameInput || outfits) {
+		// Did user type anything into outfit name textfield?
+		if (outfitNameInput.trim() === "") {
+			// No, return unfiltered outfits
+			filteredOutfits = outfits;
+		} else {
+			// Yes, return filtered outfits
+			filteredOutfits = outfits.filter(outfit => {
+				// Is there any outfit data?
+				if (outfit.data) {
+					// Yes, we can check if the names match
+					const existingOutfitName = outfit.data.name.toLowerCase();
+					const newOutfitName = outfitNameInput.toLowerCase();
+
+					return existingOutfitName.includes(newOutfitName)
+				} else {
+					// No, we cannot check, throw away the outfit!
+					return false;
+				}
+			});
+		}
+	}
 
 	// TODO: You probably want to make a class for Outfit managment instead of storing menuOpen in Outfit class
 	/*
@@ -216,7 +248,7 @@
 </div>
 
 <div class="outfits">
-	{#each outfits as outfit}
+	{#each filteredOutfits as outfit}
 		{@const outfitName = (outfit.data) ? outfit.data.name : "Unknown"}
 
 		<div class="outfit">

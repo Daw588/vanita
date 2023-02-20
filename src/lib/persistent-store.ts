@@ -16,7 +16,7 @@ export default function createPersistentStore<T>(key: string, defaultValue: T, c
 
 		await chrome.storage.local.set(target);
 
-		console.log("Saved", key, newValue, target);
+		//console.log("Saved", key, newValue, target);
 
 		// Allow for custom event
 		if (callback) {
@@ -29,7 +29,7 @@ export default function createPersistentStore<T>(key: string, defaultValue: T, c
 		const value = values[key];
 		if (value) {
 			store.set(value);
-			console.log("Loaded", key, value);
+			//console.log("Loaded", key, value);
 		}
 
 		isValueLoadedFromMemory = true;
@@ -40,7 +40,7 @@ export default function createPersistentStore<T>(key: string, defaultValue: T, c
 		}
 	});
 
-	console.log("Initialized", key, defaultValue);
+	//console.log("Initialized", key, defaultValue);
 
 	// Allow for external communication with the store
 	return store;

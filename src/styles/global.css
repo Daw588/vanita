@@ -34,7 +34,7 @@
 	position: fixed;
 	top: 100%;
 	left: 100px;
-	transform: translateY(-100%);
+	transform: translateY(calc(-100% + 1px));
 	z-index: 9999;
 	padding: 6px;
 	padding-left: 8px;

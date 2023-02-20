@@ -4,7 +4,7 @@
 		"name": "Daw588",
 		"url": "https://daw588.glitch.me/"
 	},
-	"version": "2.0.0",
+	"version": "2.2.0",
 	"type": "module",
 	"scripts": {
 		"dev": "npm run build && npm run copy",
@@ -21,6 +21,8 @@
 		"@types/chrome": "^0.0.216",
 		"@types/fs-extra": "^11.0.1",
 		"@types/uglify-js": "^3.17.1",
+		"clipboardy": "^3.0.0",
+		"fs-extra": "^11.1.0",
 		"sass": "^1.58.1",
 		"svelte": "^3.55.1",
 		"svelte-check": "^3.0.3",
@@ -33,8 +35,6 @@
 		"zip-a-folder": "^1.1.5"
 	},
 	"dependencies": {
-		"clipboardy": "^3.0.0",
-		"fs-extra": "^11.1.0",
 		"svelte-icons": "^2.1.0"
 	}
 }
