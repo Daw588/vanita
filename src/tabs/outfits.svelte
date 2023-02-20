@@ -5,14 +5,10 @@
 	import { onMount } from "svelte";
 	import Outfit from "../lib/outfit";
 	import Thumbnail from "../lib/thumbnail";
-	//import LZString from "../lib/third-party/lz-string";
-	//import * as util from "../lib/util";
 	import GoGear from "svelte-icons/go/GoGear.svelte";
-	import LocalStorage from "../lib/local-storage";
-	import type { OutfitCreateData } from "../lib/outfit";
+	import { outfitList } from "../data/outfit-list";
 
 	let outfits: Outfit[] = [];
-	//let templateOutfitId = -1;
 	let outfitNameInput = "";
 	let thisUser: User;
 	let outfitsLoaded = false;
@@ -50,27 +46,6 @@
 	}
 
 	// TODO: You probably want to make a class for Outfit managment instead of storing menuOpen in Outfit class
-	/*
-	class Outfit {
-		public constructor() {
-			outfits.push(this);
-			outfits = outfits; // Trigger update
-		}
-
-		public delete() {
-			const index = outfits.indexOf(this);
-			if (index !== -1) {
-				outfits.splice(index, 1);
-				outfits = outfits; // Trigger update
-			}
-		}
-	}
-	*/
-
-	// TODO: Replace LocalStorage with persistent store
-	const userOutfitsList = new LocalStorage<{
-		data: OutfitCreateData, thumbnailUrl: string
-	}[]>("outfit-list", []);
 
 	onMount(async () => {
 		// Get currently authenticated user
@@ -98,60 +73,22 @@
 			return;
 		}
 
-		const outfitList = outfits.map(outfit => {
+		const rawOutfitList = outfits.map(outfit => {
 			return {
 				data: outfit.data,
 				thumbnailUrl: outfit.thumbnailUrl
 			};
 		});
 
-		await userOutfitsList.save(outfitList);
-
-		/*
-		const uncompressed = JSON.stringify(outfitList);
-		const compressed = LZString.compress(uncompressed);
-		const decompressed = LZString.decompress(compressed);
-
-		const uncompressedBytes = util.stringToBytes(uncompressed);
-		const compressedBytes = util.stringToBytes(compressed);
-		const decompressedBytes = util.stringToBytes(decompressed);
-		
-		const compressionRatio = uncompressedBytes / compressedBytes;
-		const savedSpace = (1 - (compressedBytes / uncompressedBytes)) * 100;
-
-		console.log(`
-			Save Operation Performed Successfuly.
-
-			Uncompressed: ${util.formatBytes(uncompressedBytes)}
-			Compressed: ${util.formatBytes(compressedBytes)}
-			Decompressed: ${util.formatBytes(decompressedBytes)}
-
-			Compression Ratio: ${compressionRatio.toFixed(2)}
-			Saved: ${Math.round(savedSpace)}%
-		`);
-
-		localStorage.setItem("rwp-outfits", compressed);
-		*/
+		// Save the outfit list
+		outfitList.set(rawOutfitList);
 	}
 
 	async function loadOutfits() {
-		let outfitList = await userOutfitsList.load();
-
-		// Migrate data from old location
-		const legacyOutfits = await chrome.storage.sync.get(["outfit-list"]);
-		const legacyOutfitList = legacyOutfits["outfit-list"];
-		if (legacyOutfitList) {
-			await chrome.storage.sync.remove("outfit-list");
-			outfitList = legacyOutfitList;
-		}
-
-		/*
-		const decompressed = LZString.decompress(compressed);
-		const outfitList = JSON.parse(decompressed);
-		*/
+		let rawOutfitList = $outfitList;
 
 		// Overwrite current data with loaded data
-		outfits = outfitList.map(outfitInfo => {
+		outfits = rawOutfitList.map(outfitInfo => {
 			const outfit = new Outfit();
 			outfit.thumbnailUrl = outfitInfo.thumbnailUrl;
 			outfit.data = outfitInfo.data;
