@@ -35,6 +35,7 @@
 	}
 	*/
 
+	// TODO: Replace LocalStorage with persistent store
 	const userOutfitsList = new LocalStorage<{
 		data: OutfitCreateData, thumbnailUrl: string
 	}[]>("outfit-list", []);
@@ -102,7 +103,15 @@
 	}
 
 	async function loadOutfits() {
-		const outfitList = await userOutfitsList.load();
+		let outfitList = await userOutfitsList.load();
+
+		// Migrate data from old location
+		const legacyOutfits = await chrome.storage.sync.get(["outfit-list"]);
+		const legacyOutfitList = legacyOutfits["outfit-list"];
+		if (legacyOutfitList) {
+			await chrome.storage.sync.remove("outfit-list");
+			outfitList = legacyOutfitList;
+		}
 
 		/*
 		const decompressed = LZString.decompress(compressed);
@@ -208,13 +217,15 @@
 
 <div class="outfits">
 	{#each outfits as outfit}
+		{@const outfitName = (outfit.data) ? outfit.data.name : "Unknown"}
+
 		<div class="outfit">
 			<div class="preview">
 				<img
 					class="icon"
 					on:click={() => wearOutfit(outfit)}
 					on:keydown={() => {}}
-					alt={`Bodyshot of ${(outfit.data) ? outfit.data.name : "Unknown"}`}
+					alt={`Bodyshot of ${outfitName}`}
 					src={(outfit.thumbnailUrl) ? outfit.thumbnailUrl : "#"} />
 				<div class="options" style={`display: ${(outfit.menuOpen) ? "flex" : "none"};`}>
 					<div class="option" on:click={() => updateOutfit(outfit)} on:keydown={() => {}}>Update</div>
@@ -223,8 +234,10 @@
 				</div>
 			</div>
 			<div class="caption">
-				<div class="name">{(outfit.data) ? outfit.data.name : "Unknown"}</div>
-				<div class="edit" on:click={() => toggleMenu(outfit)} on:keydown={() => {}}><GoGear /></div>
+				<div class="name" title={outfitName}>{outfitName}</div>
+				<div class="actions">
+					<div class="edit" on:click={() => toggleMenu(outfit)} on:keydown={() => {}}><GoGear /></div>
+				</div>
 			</div>
 		</div>
 	{/each}

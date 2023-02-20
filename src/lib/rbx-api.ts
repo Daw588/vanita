@@ -1,4 +1,5 @@
 async function getCsrfToken() {
+	/*
 	const res = await fetch("https://avatar.roblox.com/v1/avatar/thumbnail-customization", {
 		method: "POST",
 		headers: new Headers({
@@ -6,8 +7,11 @@ async function getCsrfToken() {
 		}),
 		credentials: "include"
 	});
-
 	return res.headers.get("x-csrf-token");
+	*/
+
+	const meta = document.querySelector("meta[name='csrf-token']");
+	return meta.getAttribute("data-token");
 }
 
 export async function post(url: RequestInfo | URL, body?: any) {

@@ -1,3 +1,6 @@
+/**
+ * @deprecated Use `createPersistentStore` instead.
+ */
 export default class LocalStorage<T> {
 	public readonly key: string;
 	public readonly defaultValue: T;
@@ -11,11 +14,11 @@ export default class LocalStorage<T> {
 		const target = {};
 		target[this.key] = value;
 
-		await chrome.storage.sync.set(target);
+		await chrome.storage.local.set(target);
 	}
 
 	public async load() {
-		const values = await chrome.storage.sync.get([this.key]);
+		const values = await chrome.storage.local.get([this.key]);
 		const value = values[this.key];
 		const finalValue = (value) ? value : this.defaultValue;
 		

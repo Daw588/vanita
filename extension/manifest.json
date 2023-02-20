@@ -9,7 +9,8 @@
 	"content_scripts": [
 		{
 			"matches": ["https://www.roblox.com/*"],
-			"js": ["embedded.js"]
+			"js": ["embedded.js"],
+			"run_at": "document_end"
 		}
 	],
 	"host_permissions":[

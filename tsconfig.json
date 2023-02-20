@@ -1,7 +1,7 @@
 {
 	"extends": "@tsconfig/svelte",
 	"compilerOptions": {
-		"target": "ES2021",
+		"target": "Es2022",
 		"module": "ESNext",
 		"useDefineForClassFields": true,
 		"baseUrl": ".",

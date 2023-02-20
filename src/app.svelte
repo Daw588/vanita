@@ -3,11 +3,15 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import Draggable from "./lib/draggable";
+	import LocalFiles from "./lib/local-files";
+
 	import About from "./tabs/about.svelte";
 	import Outfits from "./tabs/outfits.svelte";
-	import LocalStorage from "./lib/local-storage";
+	import Streamer from "./tabs/streamer.svelte";
+
+	import { windowLocation } from "./data/window-location";
+
 	import GoX from "svelte-icons/go/GoX.svelte";
-	import LocalFiles from "./lib/local-files";
 
 	let draggable: Draggable;
 	let currentTabName: string = "outfits";
@@ -18,12 +22,14 @@
 		document.getElementById("app").style.display = (isOpen) ? "flex" : "none";
 	}
 
-	onMount(async () => {
-		const windowLocation = new LocalStorage<{x: number, y: number}>("window-location", {
-			x: 0,
-			y: 0
-		});
+	// When draggable is initialized in onMount()
+	$: if (draggable) {
+		// Load previous window location
+		draggable.targetX = $windowLocation.x;
+		draggable.targetY = $windowLocation.y;
+	}
 
+	onMount(async () => {
 		const containerElement = document.getElementById("app");
 		draggable = new Draggable(containerElement);
 
@@ -32,20 +38,15 @@
 			isOpen = true;
 		}
 
-		// Load previous window location
-
-		const saved = await windowLocation.load();
-		//console.log(saved);
-		draggable.targetX = saved.x;
-		draggable.targetY = saved.y;
-
 		draggable.onDragCompleted(() => {
 			// Save recent window location
-			windowLocation.save({
+			windowLocation.set({
 				x: draggable.targetX,
 				y: draggable.targetY
-			})
+			});
 		});
+
+		console.log("Loaded");
 	});
 </script>
 
@@ -58,11 +59,14 @@
 
 <div class="tabs">
 	<div class="tab" on:click={() => currentTabName = "outfits"} on:keydown={() => {}}>Outfits</div>
+	<div class="tab" on:click={() => currentTabName = "streamer"} on:keydown={() => {}}>Streamer</div>
 	<div class="tab" on:click={() => currentTabName = "about"} on:keydown={() => {}}>About</div>
 </div>
 
 {#if currentTabName === "outfits"}
 	<Outfits />
+{:else if currentTabName === "streamer"}
+	<Streamer />
 {:else if currentTabName === "about"}
 	<About />
 {/if}

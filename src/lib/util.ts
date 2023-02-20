@@ -13,3 +13,9 @@ export function formatBytes(bytes: number, decimals: number = 2): string {
 
 	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
+
+export function queryAll(selector: string, callback: (v: HTMLElement) => void) {
+	document.querySelectorAll(selector).forEach(
+		(v: HTMLElement) => callback(v)
+	);
+}
