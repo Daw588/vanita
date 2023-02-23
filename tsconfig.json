@@ -1,8 +1,9 @@
 {
 	"extends": "@tsconfig/svelte",
 	"compilerOptions": {
-		"target": "Es2022",
+		"target": "ES2022",
 		"module": "ESNext",
+		"esModuleInterop": true,
 		"useDefineForClassFields": true,
 		"baseUrl": ".",
 		/**
@@ -13,9 +14,20 @@
 		 */
 		"allowJs": true,
 		"checkJs": true,
-		"types": [
-			"chrome"
-		]
+		"types": ["chrome", "node"]
 	},
-	"include": ["src/**/*.d.ts", "src/**/*.ts", "src/**/*.js", "src/**/*.svelte"]
+	"ts-node": {
+		/*
+			This gets rid of the following error:
+			TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts"
+		*/
+		"esm": true
+	},
+	"include": [
+		"src/**/*.d.ts",
+		"src/**/*.ts",
+		"src/**/*.js",
+		"src/**/*.svelte",
+		"scripts/**/*.ts"
+	]
 }

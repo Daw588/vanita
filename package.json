@@ -7,19 +7,17 @@
 	"version": "2.2.0",
 	"type": "module",
 	"scripts": {
-		"dev": "npm run build && npm run copy",
-		"start": "vite",
 		"build": "vite build && npm run pack",
-		"serve": "vite preview",
-		"check": "svelte-check --tsconfig ./tsconfig.json",
-		"pack": "node scripts/pack.js",
-		"copy": "node scripts/copy.js"
+		"pack": "pnpm exec ts-node ./scripts/pack/index.ts",
+		"copy": "pnpm exec ts-node ./scripts/copy.ts",
+		"check": "svelte-check --tsconfig ./tsconfig.json"
 	},
 	"devDependencies": {
 		"@sveltejs/vite-plugin-svelte": "^1.4.0",
 		"@tsconfig/svelte": "^3.0.0",
 		"@types/chrome": "^0.0.216",
 		"@types/fs-extra": "^11.0.1",
+		"@types/node": "^18.14.1",
 		"@types/uglify-js": "^3.17.1",
 		"clipboardy": "^3.0.0",
 		"fs-extra": "^11.1.0",
@@ -27,6 +25,7 @@
 		"svelte": "^3.55.1",
 		"svelte-check": "^3.0.3",
 		"svelte-preprocess": "^5.0.1",
+		"ts-node": "^10.9.1",
 		"tslib": "^2.5.0",
 		"typescript": "^4.9.5",
 		"uglify-js": "^3.17.4",

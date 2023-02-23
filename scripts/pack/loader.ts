@@ -1,3 +1,5 @@
+export {}
+
 const container = document.createElement("div");
 container.id = "app";
 document.body.appendChild(container);
