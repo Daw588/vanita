@@ -7,9 +7,8 @@
 	"version": "2.2.0",
 	"type": "module",
 	"scripts": {
-		"build": "vite build && npm run pack",
+		"build": "vite build && pnpm run pack",
 		"pack": "pnpm exec ts-node ./scripts/pack/index.ts",
-		"copy": "pnpm exec ts-node ./scripts/copy.ts",
 		"check": "svelte-check --tsconfig ./tsconfig.json"
 	},
 	"devDependencies": {
