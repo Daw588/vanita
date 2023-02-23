@@ -1,4 +1,5 @@
 node_modules
+extension/embedded.js
 .vscode
 build
 pnpm-lock.yaml
