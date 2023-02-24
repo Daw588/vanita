@@ -14,7 +14,7 @@ export async function post(url: RequestInfo | URL, body?: any) {
 	// The token is no longer valid
 	if (response.status === 403) {
 		// Refresh the token
-		xCsrfToken.data = response.headers.get("x-csrf-token")
+		xCsrfToken.data = response.headers.get("x-csrf-token");
 
 		// Attempt to make request again
 		const anotherResponse = await fetch(url, {
@@ -45,7 +45,7 @@ export async function get(url: RequestInfo | URL) {
 	// The token is no longer valid
 	if (response.status === 403) {
 		// Refresh the token
-		xCsrfToken.data = response.headers.get("x-csrf-token")
+		xCsrfToken.data = response.headers.get("x-csrf-token");
 
 		// Attempt to make request again
 		const anotherResponse = await fetch(url, {

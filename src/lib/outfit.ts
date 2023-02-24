@@ -80,8 +80,11 @@ interface AvatarInfo {
 
 export default class Outfit {
 	id: number; // User outfit id
+
 	thumbnailUrl?: string;
+
 	data?: OutfitCreateData;
+
 	menuOpen: boolean = false;
 
 	public constructor() {}
@@ -156,7 +159,7 @@ export default class Outfit {
 			outfitType: body.outfitType,
 			playerAvatarType: body.playerAvatarType,
 			scale: body.scale
-		}
+		};
 
 		return outfit;
 	}
@@ -173,7 +176,7 @@ export default class Outfit {
 			scale: body.scales,
 			playerAvatarType: body.playerAvatarType, // R15, R6
 			outfitType: "Avatar"
-		}
+		};
 
 		return outfit;
 	}

@@ -55,7 +55,7 @@
 		const toggleBtn = document.getElementById("app-toggle");
 		toggleBtn.onclick = () => {
 			isOpen = true;
-		}
+		};
 
 		draggable.onDragCompleted(() => {
 			// Save recent window location

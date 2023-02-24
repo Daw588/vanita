@@ -36,7 +36,7 @@
 					const existingOutfitName = outfit.data.name.toLowerCase();
 					const newOutfitName = outfitNameInput.toLowerCase();
 
-					return existingOutfitName.includes(newOutfitName)
+					return existingOutfitName.includes(newOutfitName);
 				} else {
 					// No, we cannot check, throw away the outfit!
 					return false;
@@ -193,7 +193,7 @@
 				<img
 					class="icon"
 					on:click={() => wearOutfit(outfit)}
-					on:keydown={() => {}}
+					on:keydown={(a) => {}}
 					alt={`Bodyshot of ${outfitName}`}
 					src={(outfit.thumbnailUrl) ? outfit.thumbnailUrl : "#"} />
 				<div class="options" style={`display: ${(outfit.menuOpen) ? "flex" : "none"};`}>

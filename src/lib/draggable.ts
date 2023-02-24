@@ -1,9 +1,14 @@
 export default class Draggable {
 	private offX = 0;
+	
 	private offY = 0;
+
 	private mouseX = 0;
+
 	private mouseY = 0;
+
 	public readonly target: HTMLElement;
+
 	private dragCompletedCallbacks: (() => void)[] = [];
 
 	public constructor(target: HTMLElement) {
@@ -26,7 +31,7 @@ export default class Draggable {
 		// call a function whenever the cursor moves:
 		document.onmousemove = moveEvent => {
 			self.elementDrag(moveEvent);
-		}
+		};
 	}
 
 	private elementDrag(e: MouseEvent) {
