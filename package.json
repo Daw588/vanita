@@ -9,7 +9,8 @@
 	"scripts": {
 		"build": "vite build && pnpm run pack",
 		"pack": "pnpm exec ts-node ./scripts/pack/index.ts",
-		"check": "svelte-check --tsconfig ./tsconfig.json"
+		"check": "svelte-check --tsconfig ./tsconfig.json",
+		"lint": "eslint . --ext .svelte && eslint . --ext .ts"
 	},
 	"devDependencies": {
 		"@sveltejs/vite-plugin-svelte": "^1.4.0",
