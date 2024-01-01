@@ -5,7 +5,11 @@
 
 	"name": "Vanita",
 	"description": "Save, and wear Roblox outfits with nice-to-have features like importing, exporting, and tagging.",
-	"version": "3.0.0",
+	"version": "3.0.1",
+
+	"host_permissions": [
+		"https://*.roblox.com/*"
+	],
 
 	"permissions": [
 		"activeTab",
