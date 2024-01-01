@@ -1,33 +1,33 @@
 {
-	"extends": "@tsconfig/svelte",
+	"extends": "@tsconfig/svelte/tsconfig.json",
 	"compilerOptions": {
-		"target": "ES2022",
-		"module": "ESNext",
-		"esModuleInterop": true,
+		"target": "ESNext",
 		"useDefineForClassFields": true,
-		"baseUrl": ".",
+		"module": "ESNext",
+		"resolveJsonModule": true,
 		/**
 		 * Typecheck JS in `.svelte` and `.js` files by default.
 		 * Disable checkJs if you'd like to use dynamic types in JS.
 		 * Note that setting allowJs false does not prevent the use
 		 * of JS in `.svelte` files.
-		 */
+		*/
+		"strict": true,
 		"allowJs": true,
 		"checkJs": true,
-		"types": ["chrome", "node"]
-	},
-	"ts-node": {
-		/*
-			This gets rid of the following error:
-			TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts"
-		*/
-		"esm": true
+		"isolatedModules": true,
+		"types": [
+			"@types/chrome"
+		]
 	},
 	"include": [
 		"src/**/*.d.ts",
 		"src/**/*.ts",
 		"src/**/*.js",
-		"src/**/*.svelte",
-		"scripts/**/*.ts"
+		"src/**/*.svelte"
+	],
+	"references": [
+		{
+			"path": "./tsconfig.node.json"
+		}
 	]
 }

@@ -1,8 +1,8 @@
-import App from "./app.svelte";
-import "./styles/global.css";
+import "./app.css";
+import App from "./App.svelte";
 
 const app = new App({
-	target: document.getElementById("app")
+	target: document.getElementById("app") as HTMLDivElement,
 });
 
 export default app;
