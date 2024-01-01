@@ -1,1 +1,0 @@
-{"manifest_version":3,"name":"Vanita","description":"Save, and wear Roblox outfits with nice-to-have features like importing, exporting, and tagging.","version":"3.0.0","permissions":["activeTab","cookies","storage","unlimitedStorage","scripting"],"optional_permissions":["downloads"],"icons":{"128":"logo.png"},"action":{"default_popup":"index.html"}}
