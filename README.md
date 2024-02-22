@@ -23,3 +23,7 @@ Save, and wear Roblox outfits with nice-to-have features like importing, exporti
 ### How to install the extension?
 
 You can get the extension either directly from the latest [GitHub release](https://github.com/Daw588/vanita/releases/latest), or through the [Google Web Store](https://chromewebstore.google.com/detail/vanita/dcmbddbidlgkkaaiogiecbbjimjeicmo), though the Google Web Store is preferred option, if you are not familiar with installing unpacked extensions, or if you don't want to manually update the extension on each release. You can also build the extension yourself using the source code, if that is your cup of tea.
+
+## Community
+
+- Discord: <https://discord.gg/wR2wykwUeD>
