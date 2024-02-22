@@ -37,8 +37,32 @@
 
 	let deleteAllOutfitsDialogVisible = false;
 	let migrationDialogVisible = false;
+
 	let outfitProblemDialogVisible = false;
 	let outfitProblemDialogMessage = "";
+
+	type ErrorDialog = {
+		/**
+		 * Whether the dialog is in visible, or hidden state.
+		 */
+		visible: boolean,
+
+		/**
+		 * Meaningful non-technical error message that the user will be given.
+		 */
+		userFacingMessage?: string,
+
+		/**
+		 * Technical details regarding the issue that occured. In other words, the raw error message.
+		 */
+		errorData?: string,
+
+		title?: string
+	}
+
+	let errorDialog: ErrorDialog = {
+		visible: false,
+	};
 	
 	let storageUsageText = "";
 
@@ -136,6 +160,11 @@
 	}
 
 	onMount(async () => {
+		const currentTab = await browser.getCurrentTab();
+		if (currentTab && currentTab.url) {
+			console.log(`Activated at '${currentTab.url}'`);
+		}
+
 		rbxapi = await RBXApi.fromCurrentSession();
 		userid = (await rbxapi.getAuthenticatedUser()).id;
 		await loadOutfits();
@@ -218,7 +247,7 @@
 		const thumbnailBase64 = await browser.fetchImageBase64(thumbnailUrl);
 		const now = Date.now();
 
-		outfits.unshift({
+		const newOutfit = {
 			name: textboxContent,
 			created: now,
 			lastUsed: 0, // 0 is basically "never"
@@ -237,12 +266,26 @@
 				})
 			},
 			thumbnailUrl: thumbnailBase64
-		});
+		};
 
-		outfits = outfits;
-		textboxContent = "";
-
-		await saveOutfits();
+		// Validate new outfit before attempting to save it
+		const outfitParseResult = defs.Outfit.safeParse(newOutfit);
+		if (outfitParseResult.success) {
+			// Valid!!!
+			outfits.unshift(newOutfit);
+			outfits = outfits;
+			textboxContent = "";
+			await saveOutfits();
+		} else {
+			// Not valid? oof
+			// Don't save, let the user know something is wrong
+			errorDialog = {
+				visible: true,
+				title: "There was a problem with your outfit",
+				userFacingMessage: `Outfit data did not pass the validation step. If Roblox isn't down, this is likely a bug and you should report it on <a href="https://github.com/Daw588/vanita/issues">GitHub</a> as an issue. Make sure to include the message below:`,
+				errorData: outfitParseResult.error.message
+			};
+		}
 	}
 
 	async function deleteAllOutfits() {
@@ -527,6 +570,21 @@
 					}
 				},
 			]} />
+
+		<Dialog
+			title={errorDialog.title ?? ""}
+			description={`${errorDialog.userFacingMessage}<br/><br/><code>${errorDialog.errorData}</code>` ?? ""}
+			visible={errorDialog.visible}
+			actions={[
+				{
+					label: "Understood",
+					kind: "normal",
+					onClick: () => {
+						errorDialog.visible = false;
+					}
+				},
+			]}
+			allowHTML={true} />
 
 		<Dialog
 			title="There was a problem with your outfit"

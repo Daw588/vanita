@@ -1,3 +1,5 @@
+type Optional<T> = T | undefined;
+
 export async function executeOnTab
 	<T extends (...args: Parameters<T>) => ReturnType<T>>
 	(tabId: number, func: T, ...args: Parameters<T>): Promise<ReturnType<T>>
@@ -27,7 +29,13 @@ export async function executeOnTab
 	return frames[0].result as ReturnType<T>;
 }
 
-export async function getCurrentTabId(): Promise<number | undefined> {
+export async function getCurrentTab(): Promise<Optional<chrome.tabs.Tab>> {
+	const activeTabs = await chrome.tabs.query({ active: true });
+	return activeTabs[0];
+}
+
+
+export async function getCurrentTabId(): Promise<Optional<number>> {
 	const activeTabs = await chrome.tabs.query({ active: true });
 	return activeTabs[0].id;
 }

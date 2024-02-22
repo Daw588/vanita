@@ -17,7 +17,9 @@ export const Scales = zod.object({
 	head: zod.number(),
 	depth: zod.number(),
 	proportion: zod.number(),
-	bodyType: zod.number().int()
+
+	// This refers to the slider (0 - 100) on the avatar editor page, just below the avatar preview
+	bodyType: zod.number()
 }).strict();
 
 export const AvatarAsset = zod.object({
