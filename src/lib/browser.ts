@@ -129,3 +129,106 @@ export async function fetchOnTab
 		}
 	}, requestData);
 }
+
+export async function promptFilePicker(info: { accept?: "application/JSON" }): Promise<FileList> {
+	return new Promise((resolve, reject) => {
+		const input = document.createElement("input");
+		input.type = "file";
+		input.accept = info.accept ?? "";
+		input.onchange = async () => {
+			const files = input.files;
+			if (files) {
+				return resolve(files);
+			} else {
+				return reject("No files were retrieved");
+			}
+		};
+		input.click();
+	});
+}
+
+export async function readFileAsString(file: File): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = event => {
+			const target = event.target;
+			if (target) {
+				const result = target.result;
+				if (typeof(result) === "string") {
+					resolve(result);
+				} else {
+					reject("Decoded data was not a string")
+				}
+			} else{
+				reject("No decoded data was returned");
+			}
+		}
+		reader.readAsText(file);
+	});
+}
+
+export async function reloadActiveTab(): Promise<void> {
+	const activeTabs = await chrome.tabs.query({ active: true });
+	const currentTab = activeTabs[0];
+
+	return new Promise(resolve => {
+		chrome.tabs.onUpdated.addListener(function onUpdated(tabId: number, info: chrome.tabs.TabChangeInfo) {
+			if (currentTab && tabId === currentTab.id && info.status === "complete") {
+				resolve();
+				chrome.tabs.onUpdated.removeListener(onUpdated);
+			}
+		});
+
+		chrome.tabs.reload();
+	});
+}
+
+export async function saveJsonFile(filename: string, data: string): Promise<void> {
+	return new Promise(async (resolve, reject) => {
+		const blob = new Blob([data], {
+			type: "application/json"
+		});
+
+		const url = URL.createObjectURL(blob);
+
+		const hasPermission = await chrome.permissions.contains({
+			permissions: ["downloads"]
+		});
+
+		if (!hasPermission) {
+			const wasGranted = await chrome.permissions.request({
+				permissions: ["downloads"]
+			});
+
+			if (!wasGranted) {
+				reject("Downloads permission required");
+				// TODO: Create a popup for this
+				return;
+			}
+		}
+
+		const downloadId = await chrome.downloads.download({
+			url: url,
+			filename: filename + ".json",
+			conflictAction: "prompt",
+			saveAs: true
+		});
+
+		// console.log("Download id", downloadId);
+
+		const downloadItems = await chrome.downloads.search({ id: downloadId });
+		const downloadItem = downloadItems[0];
+		// console.log(downloadItems, downloadItem);
+		if (downloadItem) {
+			const currentState = downloadItem.state;
+			// console.log(currentState);
+			if (currentState === "complete") {
+				resolve();
+			} else if (currentState === "interrupted") {
+				reject("Interrupted");
+			}
+		} else {
+			reject("Download doesn't exist");
+		}
+	})
+}

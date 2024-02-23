@@ -1,23 +1,23 @@
 <script lang="ts">
 	import { onMount } from "svelte";
+	import zod from "zod";
+	import to from "./lib/to";
 
 	import * as util from "./lib/util";
+	import * as defs from "./lib/defs";
+	import * as browser from "./lib/browser";
 	import RBXApi from "./lib/rbxapi";
+	import { Snackbar } from "./lib/snackbar";
 
+	import Dialog from "./components/Dialog.svelte";
 	import CircularProgressBar from "./components/CircularProgressBar.svelte";
 	import PrimaryButton from "./components/PrimaryButton.svelte";
 	import BottomSheetOutfitEditor from "./components/BottomSheetOutfitEditor.svelte";
-	import * as defs from "./lib/defs";
+	import ExpandableActionsButton from "./components/ExpandableActionsButton.svelte";
+	import CheckboxDropdown from "./components/CheckboxDropdown.svelte";
 	import TextField from "./components/TextField.svelte";
 	import SquareButton from "./components/SquareButton.svelte";
 	import Snackbars from "./components/Snackbars.svelte";
-	import { Snackbar } from "./lib/snackbar";
-	import ExpandableActionsButton from "./components/ExpandableActionsButton.svelte";
-	import to from "./lib/to";
-	import CheckboxDropdown from "./components/CheckboxDropdown.svelte";
-	import * as browser from "./lib/browser";
-	import Dialog from "./components/Dialog.svelte";
-	import zod from "zod";
 
 	let rbxapi: RBXApi;
 	let textboxContent = "";
@@ -28,7 +28,8 @@
 	let userid: number;
 	let lastSaved = 0;
 
-	let loading = false;
+	// Related to wear outfit functionality
+	let loadingAvatar = false;
 	let loadingAvatarThumbnailUrl = "";
 	let loadingAvatarName = "";
 
@@ -40,6 +41,13 @@
 
 	let outfitProblemDialogVisible = false;
 	let outfitProblemDialogMessage = "";
+
+	/**
+	 * Whether the current active tab is currently on roblox.com
+	 */
+	let isTabOnRobloxSite = true;
+
+	const extensionLogo = chrome.runtime.getURL("logo.png");
 
 	type ErrorDialog = {
 		/**
@@ -159,86 +167,21 @@
 		}
 	}
 
-	onMount(async () => {
+	async function isRobloxTab() {
 		const currentTab = await browser.getCurrentTab();
 		if (currentTab && currentTab.url) {
-			console.log(`Activated at '${currentTab.url}'`);
+			const tabUrl = new URL(currentTab.url);
+			if (tabUrl.hostname.endsWith(".roblox.com")) {
+				return true;
+			}
 		}
-
-		rbxapi = await RBXApi.fromCurrentSession();
-		userid = (await rbxapi.getAuthenticatedUser()).id;
-		await loadOutfits();
-	});
-
-	async function saveJsonFile(filename: string, data: string): Promise<void> {
-		return new Promise(async (resolve, reject) => {
-			const blob = new Blob([data], {
-				type: "application/json"
-			});
-
-			const url = URL.createObjectURL(blob);
-
-			const hasPermission = await chrome.permissions.contains({
-				permissions: ["downloads"]
-			});
-
-			if (!hasPermission) {
-				const wasGranted = await chrome.permissions.request({
-					permissions: ["downloads"]
-				});
-
-				if (!wasGranted) {
-					reject("Downloads permission required");
-					// TODO: Create a popup for this
-					return;
-				}
-			}
-
-			const downloadId = await chrome.downloads.download({
-				url: url,
-				filename: filename + ".json",
-				conflictAction: "prompt",
-				saveAs: true
-			});
-
-			// console.log("Download id", downloadId);
-
-			const downloadItems = await chrome.downloads.search({ id: downloadId });
-			const downloadItem = downloadItems[0];
-			// console.log(downloadItems, downloadItem);
-			if (downloadItem) {
-				const currentState = downloadItem.state;
-				// console.log(currentState);
-				if (currentState === "complete") {
-					resolve();
-				} else if (currentState === "interrupted") {
-					reject("Interrupted");
-				}
-			} else {
-				reject("Download doesn't exist");
-			}
-		})
-	}
-
-	async function reloadActiveTab(): Promise<void> {
-		return new Promise(async resolve => {
-			const activeTabs = await chrome.tabs.query({ active: true });
-			const currentTab = activeTabs[0];
-
-			chrome.tabs.onUpdated.addListener(function onUpdated(tabId: number, info: chrome.tabs.TabChangeInfo) {
-				if (currentTab && tabId === currentTab.id && info.status === "complete") {
-					resolve();
-					chrome.tabs.onUpdated.removeListener(onUpdated);
-				}
-			});
-
-			await chrome.tabs.reload();
-		});
+		return false;
 	}
 
 	async function addCurrentOutfit() {
 		// Do not accept empty name
 		if (textboxContent.trim() === "") {
+			Snackbar.show("Can't create outfit with empty name!", 3);
 			return;
 		}
 
@@ -282,7 +225,7 @@
 			errorDialog = {
 				visible: true,
 				title: "There was a problem with your outfit",
-				userFacingMessage: `Outfit data did not pass the validation step. If Roblox isn't down, this is likely a bug and you should report it on <a href="https://github.com/Daw588/vanita/issues">GitHub</a> as an issue. Make sure to include the message below:`,
+				userFacingMessage: `Outfit data did not pass the validation step. If Roblox isn't down, this is likely a bug and you should report it on <a href="https://github.com/Daw588/vanita/issues" target="_blank">GitHub</a> as an issue. Make sure to include the message below:`,
 				errorData: outfitParseResult.error.message
 			};
 		}
@@ -297,7 +240,7 @@
 		loadingAvatarThumbnailUrl = outfit.thumbnailUrl;
 		loadingAvatarName = outfit.name;
 		
-		loading = true;
+		loadingAvatar = true;
 
 		await rbxapi.setPlayerAvatarType(outfit.character.avatarType);
 		await rbxapi.setBodyColors(outfit.character.bodyColors);
@@ -352,13 +295,13 @@
 			}
 		}
 
-		await reloadActiveTab();
+		await browser.reloadActiveTab();
 
 		// TODO: Check each request to make sure that it was successful
 		// TODO: Make request to validate whether the avatar that is being applied matches the avatar returned by the Roblox API
 		// TODO: ^^^ This is important because sometimes the apply feature is not successful, and we don't want to make the user click multiple times as this is bad UX
 
-		loading = false;
+		loadingAvatar = false;
 		outfit.useCount++; // Outfit has been used
 		outfit.lastUsed = Date.now();
 		
@@ -380,7 +323,7 @@
 	}
 
 	async function exportOutfits() {
-		const [err] = await to(saveJsonFile("vanita-outfits-" + Date.now(), JSON.stringify(outfits)));
+		const [err] = await to(browser.saveJsonFile("vanita-outfits-" + Date.now(), JSON.stringify(outfits)));
 		if (err) {
 			Snackbar.show(err.message, 3);
 		} else {
@@ -388,51 +331,14 @@
 		}
 	}
 
-	async function promptFilePicker(info: { accept?: "application/JSON" }): Promise<FileList> {
-		return new Promise((resolve, reject) => {
-			const input = document.createElement("input");
-			input.type = "file";
-			input.accept = info.accept ?? "";
-			input.onchange = async () => {
-				const files = input.files;
-				if (files) {
-					return resolve(files);
-				} else {
-					return reject("No files were retrieved");
-				}
-			};
-			input.click();
-		});
-	}
-
-	async function readFileAsString(file: File): Promise<string> {
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.onload = event => {
-				const target = event.target;
-				if (target) {
-					const result = target.result;
-					if (typeof(result) === "string") {
-						resolve(result);
-					} else {
-						reject("Decoded data was not a string")
-					}
-				} else{
-					reject("No decoded data was returned");
-				}
-			}
-			reader.readAsText(file);
-		});
-	}
-
 	async function importOutfits() {
-		const files = await promptFilePicker({
+		const files = await browser.promptFilePicker({
 			accept: "application/JSON"
 		});
 
 		const file = files[0];
 		if (file) {
-			const str = await readFileAsString(file);
+			const str = await browser.readFileAsString(file);
 			const json = JSON.parse(str);
 			const importedOutfits = defs.Outfits.parse(json);
 			outfits.unshift(...importedOutfits);
@@ -516,169 +422,192 @@
 			queryTags = queryTags;
 		}
 	}
+
+	onMount(async () => {
+		if (!await isRobloxTab()) {
+			// Not a Roblox tab, so we can't access the Roblox API
+			// Let the user know that they need to activate this extension on the roblox site
+			isTabOnRobloxSite = false;
+			return;
+		}
+
+		rbxapi = await RBXApi.fromCurrentSession();
+		userid = (await rbxapi.getAuthenticatedUser()).id;
+		await loadOutfits();
+	});
 </script>
 
 <div class="root">
-	<div class="test">
-		<div class="loading" data-open={loading}>
-			<div class="outfit">
-				<div class="thumbnail">
-					<img class="main" src={loadingAvatarThumbnailUrl} alt="Loading avatar" />
-					<img class="reflection" src={loadingAvatarThumbnailUrl} alt="Loading avatar" />
-				</div>
-				<div class="name">{loadingAvatarName}</div>
-			</div>
-			<div class="progress">
-				<CircularProgressBar />
-				<div class="label">Configuring your avatar, please wait...</div>
-			</div>
-		</div>
-
-		<Dialog
-			title="Deletion Confirmation"
-			description="All of your outfits will be permanently deleted. This action is irreversible. Are you sure?"
-			visible={deleteAllOutfitsDialogVisible}
-			actions={[
-				{
-					label: "Yes, Delete All Outfits",
-					kind: "danger",
-					onClick: () => {
-						deleteAllOutfitsDialogVisible = false;
-						deleteAllOutfits();
-						Snackbar.show("All outfits have been deleted", 3);
-					}
-				},
-				{
-					label: "Cancel",
-					kind: "normal",
-					onClick: () => {
-						deleteAllOutfitsDialogVisible = false;
-					}
-				},
-			]} />
-
-		<Dialog
-			title="Migration Notice"
-			description="All of your outfits have been successfully migrated to a new format. Be aware, the legacy outfits use thumbnails with lower resolution, and thus they will appear blurry in some parts of this extension where higher resolution is required. You can re-add your outfits to fully migrate them."
-			visible={migrationDialogVisible}
-			actions={[
-				{
-					label: "Understood",
-					kind: "normal",
-					onClick: () => {
-						migrationDialogVisible = false;
-					}
-				},
-			]} />
-
-		<Dialog
-			title={errorDialog.title ?? ""}
-			description={`${errorDialog.userFacingMessage}<br/><br/><code>${errorDialog.errorData}</code>` ?? ""}
-			visible={errorDialog.visible}
-			actions={[
-				{
-					label: "Understood",
-					kind: "normal",
-					onClick: () => {
-						errorDialog.visible = false;
-					}
-				},
-			]}
-			allowHTML={true} />
-
-		<Dialog
-			title="There was a problem with your outfit"
-			description={outfitProblemDialogMessage}
-			visible={outfitProblemDialogVisible}
-			actions={[
-				{
-					label: "Understood",
-					kind: "normal",
-					onClick: () => {
-						outfitProblemDialogVisible = false;
-					}
-				},
-			]}
-			allowHTML={true} />
-		
-		<BottomSheetOutfitEditor
-			rbxapi={rbxapi}
-			userId={userid}
-			outfit={outfitToEdit}
-			open={editingOutfit}
-			on:close={closeOutfitEditor}
-			on:deleteOutfit={event => deleteOutfit(event.detail)} />
-
-		<div class="top">
-			<div class="search">
-				<TextField icon="search" placeholder="Enter desired outfit name" bind:value={textboxContent} />
-			</div>
-			<PrimaryButton label="Add" icon="add" on:click={addCurrentOutfit} />
-			<CheckboxDropdown bind:items={queryTags} label="Tags" emptyMessage="You haven't created any tags yet" />
-			<ExpandableActionsButton direction="down" actions={[
-				{
-					label: "Import",
-					icon: "input",
-					dangerous: false,
-					onTriggered: importOutfits
-				},
-				{
-					label: "Export",
-					icon: "output",
-					dangerous: false,
-					onTriggered: exportOutfits
-				},
-				{
-					label: "Delete All",
-					icon: "delete_forever",
-					dangerous: true,
-					onTriggered: () => deleteAllOutfitsDialogVisible = true
-				},
-			]} />
-		</div>
-
-		<div class="list">
-			<div class="fade"></div>
-			<div class="outfits">
-				{#each filteredOutfits as outfit}
-					<div class="outfit">
-						<img
-							class="thumbnail"
-							src={outfit.thumbnailUrl}
-							alt="Thumbnail of {outfit.name} outfit" />
-						
-						<span class="tooltip">{outfit.name}</span>
-						<button class="outfit-button" on:click={() => wearOutfit(outfit)} />
-						<div class="configure">
-							<SquareButton icon="edit" on:click={() => promptToEditOutfit(outfit)} />
-						</div>
+	{#if isTabOnRobloxSite}
+		<div class="test">
+			<div class="loading" data-open={loadingAvatar}>
+				<div class="outfit">
+					<div class="thumbnail">
+						<img class="main" src={loadingAvatarThumbnailUrl} alt="Loading avatar" />
+						<img class="reflection" src={loadingAvatarThumbnailUrl} alt="Loading avatar" />
 					</div>
-				{/each}
+					<div class="name">{loadingAvatarName}</div>
+				</div>
+				<div class="progress">
+					<CircularProgressBar />
+					<div class="label">Configuring your avatar, please wait...</div>
+				</div>
 			</div>
-			<div class="notice">
-				{#if outfits.length === 0}
-					<div class="message">You haven't created any outfits yet.</div>
-				{/if}
 
-				{#if outfits.length > 0 && filteredOutfits.length === 0}
-					<div class="message">None of your outfits matched your query.</div>
-				{/if}
+			<Dialog
+				title="Deletion Confirmation"
+				description="All of your outfits will be permanently deleted. This action is irreversible. Are you sure?"
+				visible={deleteAllOutfitsDialogVisible}
+				actions={[
+					{
+						label: "Yes, Delete All Outfits",
+						kind: "danger",
+						onClick: () => {
+							deleteAllOutfitsDialogVisible = false;
+							deleteAllOutfits();
+							Snackbar.show("All outfits have been deleted", 3);
+						}
+					},
+					{
+						label: "Cancel",
+						kind: "normal",
+						onClick: () => {
+							deleteAllOutfitsDialogVisible = false;
+						}
+					},
+				]} />
+
+			<Dialog
+				title="Migration Notice"
+				description="All of your outfits have been successfully migrated to a new format. Be aware, the legacy outfits use thumbnails with lower resolution, and thus they will appear blurry in some parts of this extension where higher resolution is required. You can re-add your outfits to fully migrate them."
+				visible={migrationDialogVisible}
+				actions={[
+					{
+						label: "Understood",
+						kind: "normal",
+						onClick: () => {
+							migrationDialogVisible = false;
+						}
+					},
+				]} />
+
+			<Dialog
+				title={errorDialog.title ?? ""}
+				description={`${errorDialog.userFacingMessage}<br/><br/><code>${errorDialog.errorData}</code>` ?? ""}
+				visible={errorDialog.visible}
+				actions={[
+					{
+						label: "Understood",
+						kind: "normal",
+						onClick: () => {
+							errorDialog.visible = false;
+						}
+					},
+				]}
+				allowHTML={true} />
+
+			<Dialog
+				title="There was a problem with your outfit"
+				description={outfitProblemDialogMessage}
+				visible={outfitProblemDialogVisible}
+				actions={[
+					{
+						label: "Understood",
+						kind: "normal",
+						onClick: () => {
+							outfitProblemDialogVisible = false;
+						}
+					},
+				]}
+				allowHTML={true} />
+			
+			<BottomSheetOutfitEditor
+				rbxapi={rbxapi}
+				userId={userid}
+				outfit={outfitToEdit}
+				open={editingOutfit}
+				on:close={closeOutfitEditor}
+				on:deleteOutfit={event => deleteOutfit(event.detail)} />
+
+			<div class="top">
+				<div class="search">
+					<TextField icon="search" placeholder="Enter desired outfit name" bind:value={textboxContent} />
+				</div>
+				<PrimaryButton label="Add" icon="add" on:click={addCurrentOutfit} />
+				<CheckboxDropdown bind:items={queryTags} label="Tags" emptyMessage="You haven't created any tags yet" />
+				<ExpandableActionsButton direction="down" actions={[
+					{
+						label: "Import",
+						icon: "input",
+						dangerous: false,
+						onTriggered: importOutfits
+					},
+					{
+						label: "Export",
+						icon: "output",
+						dangerous: false,
+						onTriggered: exportOutfits
+					},
+					{
+						label: "Delete All",
+						icon: "delete_forever",
+						dangerous: true,
+						onTriggered: () => deleteAllOutfitsDialogVisible = true
+					},
+				]} />
+			</div>
+
+			<div class="list">
+				<div class="fade"></div>
+				<div class="outfits">
+					{#each filteredOutfits as outfit}
+						<div class="outfit">
+							<img
+								class="thumbnail"
+								src={outfit.thumbnailUrl}
+								alt="Thumbnail of {outfit.name} outfit" />
+							
+							<span class="tooltip">{outfit.name}</span>
+							<button class="outfit-button" on:click={() => wearOutfit(outfit)} />
+							<div class="configure">
+								<SquareButton icon="edit" on:click={() => promptToEditOutfit(outfit)} />
+							</div>
+						</div>
+					{/each}
+				</div>
+				<div class="notice">
+					{#if outfits.length === 0}
+						<div class="message">You haven't created any outfits yet.</div>
+					{/if}
+
+					{#if outfits.length > 0 && filteredOutfits.length === 0}
+						<div class="message">None of your outfits matched your query.</div>
+					{/if}
+				</div>
+			</div>
+
+			<div class="bottom">
+				<div class="left">
+					<div>{storageUsageText}</div>
+					<div>-</div>
+					<div>{lastSaved === 0 ? "No changes were made" : `Saved changes ${util.timeAgo(lastSaved, Date.now())}`}</div>
+				</div>
+				<div class="right">
+					<div>{util.formatNumber(outfits.length)} outfits</div>
+				</div>
 			</div>
 		</div>
 
-		<div class="bottom">
-			<div class="left">
-				<div>{storageUsageText}</div>
-				<div>-</div>
-				<div>{lastSaved === 0 ? "No changes were made" : `Saved changes ${util.timeAgo(lastSaved, Date.now())}`}</div>
-			</div>
-			<div class="right">
-				<div>{util.formatNumber(outfits.length)} outfits</div>
-			</div>
+		<Snackbars />
+	{:else}
+		<div class="foreign-tab-warning">
+			<img src={extensionLogo} alt="Logo of the extension" />
+			<div class="heading">Vanita only works on roblox.com</div>
+			<a class="link" href="https://www.roblox.com/" target="_blank">
+				<PrimaryButton label="Take me to Roblox" />
+			</a>
 		</div>
-	</div>
-
-	<Snackbars />
+	{/if}
 </div>
 
 <style lang="scss">
@@ -710,6 +639,28 @@
 		overflow: hidden;
 	}
 
+	.foreign-tab-warning {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		width: 100vw;
+		height: 100vh;
+		font-size: 16px;
+		gap: 15px;
+
+		.heading {
+			font-size: 18px;
+			font-weight: 600;
+		}
+
+		.link {
+			all: unset;
+			margin-top: 15px;
+		}
+	}
+
+	// data-open={bool} trait implementation
 	.loading {
 		&[data-open=true] { visibility: visible; }
 		&[data-open=false] { display: none; }
