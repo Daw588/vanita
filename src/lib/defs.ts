@@ -40,9 +40,22 @@ export const Character = zod.object({
 
 export const Outfit = zod.object({
 	name: zod.string().max(25),
+
+	/**
+	 * Timestamp of when outfit was created.
+	 */
 	created: zod.number().int(),
+
+	/**
+	 * Timestamp of when outfit was last modified. When set to 0, it is treated as if it never happened.
+	 */
 	modified: zod.number().int(),
+
+	/**
+	 * Timestamp of when outfit was last used. When set to 0, it is treated as if it never happened.
+	 */
 	lastUsed: zod.number().int(),
+	
 	useCount: zod.number().int(),
 	character: Character,
 	tags: zod.array(zod.string().max(25)),
@@ -81,3 +94,13 @@ export const LegacyOutfit = zod.object({
 }).strict();
 
 export type LegacyOutfit = zod.infer<typeof LegacyOutfit>;
+
+export const Settings = zod.object({
+	backupEnabled: zod.boolean()
+}).strict();
+
+export type Settings = zod.infer<typeof Settings>;
+
+export const Backup = zod.object({
+	timeSinceLastBackup: zod.number().int()
+}).strict();

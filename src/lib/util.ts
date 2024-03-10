@@ -1,3 +1,6 @@
+import to from "./core/to";
+import * as browser from "./core/browser";
+import type { Outfit } from "./defs";
 
 export function formatBytes(bytes: number, decimals: number = 2): string {
 	if (!+bytes) return "0 Bytes";
@@ -62,3 +65,42 @@ export function arraysEqual(a: Array<unknown>, b: Array<unknown>) {
 
 	return true;
 }
+
+export async function exportOutfits(outfits: Outfit[]) {
+	const [err] = await to(browser.saveJsonFile("vanita-outfits-" + Date.now(), JSON.stringify(outfits)));
+	return err;
+}
+
+/**
+ * Overwrites object `a` with object `b`, in place, without changing `a`'s reference.
+ * Object `b` is deeply copied, and so all of the references that it has are dropped.
+ * After the overwrite, when you modify `a`, anything that referenced object `a` will be able to access its contents as the reference to the object did not change.
+ * Additionally, any change done to `a` will not effect object `b`, including its nested objects.
+ * 
+ * ```ts
+ * const a = { balance: 100, currency: "USD" };
+ * const b = { balance: 200 };
+ * 
+ * overwrite(a, b);
+ * 
+ * console.log(a.balance); // 200
+ * console.log(a.currency); // undefined
+ * 
+ * a.balance = 300;
+ * 
+ * console.log(a.balance); // 300
+ * console.log(b.balance); // 200
+ * ```
+ */
+export function overwrite(a: object, b: object) {
+	for (const key in a) {
+		delete a[key as keyof typeof a];
+	}
+	Object.assign(a, structuredClone(b));
+}
+
+// export function clamp(value: number, min: number, max: number) {
+// 	if (value < min) return min;
+// 	if (value > max) return max;
+// 	return value;
+// }

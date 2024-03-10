@@ -1,3 +1,8 @@
+import zod from "zod";
+import to from "./to";
+import { Ok, Err, type Result } from "./result";
+// import { DEV } from "../../globals";
+
 type Optional<T> = T | undefined;
 
 export async function executeOnTab
@@ -232,3 +237,118 @@ export async function saveJsonFile(filename: string, data: string): Promise<void
 		}
 	})
 }
+
+export async function getAuthToken({ interactive }: { interactive: boolean }): Promise<Result<string, "session_expired" | "no_token">> {
+	const [err, auth] = await to(chrome.identity.getAuthToken({ interactive }));
+	if (err) {
+		return Err("session_expired");
+	}
+
+	if (!auth.token) {
+		return Err("no_token");
+	}
+
+	return Ok(auth.token);
+}
+
+export class LocalStorage<T extends zod.ZodTypeAny> {
+	name: string;
+	validator: T;
+	defaultValue: zod.infer<T>;
+
+	constructor(name: string, validator: T, defaultValue: zod.infer<T>) {
+		this.name = name;
+		this.validator = validator;
+		this.defaultValue = defaultValue;
+	}
+
+	async read() {
+		const records = await chrome.storage.local.get(this.name);
+		const value = records[this.name] || this.defaultValue;
+		const result = this.validator.safeParse(value);
+		return result as zod.SafeParseReturnType<any, zod.infer<T>>;
+	}
+
+	async write(value: zod.infer<T>) {
+		const result = this.validator.safeParse(value);
+		if (result.success) {
+			await chrome.storage.local.set({ [this.name]: result.data });
+			return true;
+		}
+		return false;
+	}
+}
+
+type ServiceWorkerEvent<Request, Response> = {
+	request: Request,
+	response: Response
+}
+
+export type CustomEvents = {
+	CreateAutomaticBackup: ServiceWorkerEvent<undefined, "user_unauthenticated" | undefined>
+}
+
+export async function sendToServiceWorker<
+	Name extends keyof CustomEvents,
+	Request extends CustomEvents[Name]["request"],
+	Response extends CustomEvents[Name]["response"]
+>(event: Name, request: NonNullable<Request>): Promise<Response>;
+
+export async function sendToServiceWorker<
+	Name extends keyof CustomEvents,
+	Request extends CustomEvents[Name]["request"],
+	Response extends CustomEvents[Name]["response"]
+>(event: Name, request?: NonNullable<Request>): Promise<Response>;
+
+export async function sendToServiceWorker<
+	Name extends keyof CustomEvents,
+	Request extends CustomEvents[Name]["request"],
+	Response extends CustomEvents[Name]["response"]
+>(event: Name, request?: NonNullable<Request>): Promise<Response> {
+	return await chrome.runtime.sendMessage({ name: event, data: request });
+}
+
+type DiscriminatedCustomEvents = {
+	[K in keyof CustomEvents]: {
+		name: K,
+		data: CustomEvents[K]["request"],
+		reply: (response: CustomEvents[K]["response"]) => void
+	}
+}[keyof CustomEvents];
+
+type Callback = (sender: chrome.runtime.MessageSender, event: DiscriminatedCustomEvents) => void;
+
+// const myUnion = zod.discriminatedUnion("status", [
+// 	zod.object({ status: zod.literal("success"), data: zod.string() }),
+// 	zod.object({ status: zod.literal("failed"), error: zod.instanceof(Error) }),
+// ]);
+
+// Basic runtime validation
+// It should be okay, since we don't accept foreign requests
+const Event = zod.object({
+	name: zod.string(),
+	data: zod.any().optional()
+}).strict();
+
+export function listenForServiceWorkerEvents(callback: Callback) {
+	return chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+		const parseResult = Event.safeParse(message);
+		if (parseResult.success) {
+			const { name, data } = parseResult.data;
+
+			callback(sender, {
+				name: name as any,
+				data,
+				reply: sendResponse
+			});
+		} else {
+			console.log(parseResult.success, parseResult.error);
+		}
+	});
+}
+
+// export function print(...args: any[]) {
+// 	if (DEV) {
+// 		console.log(...args);
+// 	}
+// }

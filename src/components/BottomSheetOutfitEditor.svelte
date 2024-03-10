@@ -4,19 +4,19 @@
 	import * as defs from "../lib/defs";
 	import * as util from "../lib/util";
 
-	import TextField from "./TextField.svelte";
-	import SquareButton from "./SquareButton.svelte";
-	import ExpandableActionsButton from "./ExpandableActionsButton.svelte";
-	import PrimaryButton from "./PrimaryButton.svelte";
+	import TextField from "./core/TextField.svelte";
+	import SquareButton from "./core/SquareButton.svelte";
+	import ExpandableActionsButton from "./core/ExpandableActionsButton.svelte";
+	import PrimaryButton from "./core/PrimaryButton.svelte";
 	import { Snackbar } from "../lib/snackbar";
 	import RBXApi from "../lib/rbxapi";
-	import Dialog from "./Dialog.svelte";
-	import deepMerge from "lodash.merge";
+	import Dialog from "./core/InfoDialog.svelte";
 
 	export let open: boolean = false;
 	export let outfit: defs.Outfit | undefined;
 	export let rbxapi: RBXApi;
 	export let userId: number;
+	export let allTags: string[];
 
 	let isEditingName: boolean = false;
 	let nameLabel: HTMLInputElement;
@@ -33,7 +33,8 @@
 
 	type Events = {
 		close: void,
-		deleteOutfit: defs.Outfit
+		deleteOutfit: defs.Outfit,
+		duplicateOutfit: defs.Outfit
 	}
 
 	const dispatch = createEventDispatcher<Events>();
@@ -97,16 +98,13 @@
 		}
 	}
 
-	function removeTag(name: string) {
+	function removeTag(index: number) {
 		if (!editedOutfit) {
 			return;
 		}
 
-		const index = editedOutfit.tags.indexOf(name);
-		if (index !== -1) {
-			editedOutfit.tags.splice(index, 1);
-			editedOutfit = editedOutfit; // Trigger UI refresh
-		}
+		editedOutfit.tags.splice(index, 1);
+		editedOutfit = editedOutfit; // Trigger UI refresh
 	}
 
 	function loadOutfit() {
@@ -165,10 +163,16 @@
 		}
 	}
 
-	function save() {
+	function duplicateOutfit() {
 		if (outfit) {
-			(outfit.character as any) = {}; // Some keys may not be properly overwritten, empty them
-			deepMerge(outfit, structuredClone(editedOutfit)); // Overwrite object without losing reference
+			dispatch("duplicateOutfit", outfit);
+			close();
+		}
+	}
+
+	function save() {
+		if (outfit && editedOutfit) {
+			util.overwrite(outfit, editedOutfit);
 			outfit.modified = Date.now(); // Update the time when the outfit was last modified
 		}
 	}
@@ -233,20 +237,36 @@
 					<PrimaryButton label="Save" icon="save" on:click={saveButtonClicked} grow={true} />
 					<ExpandableActionsButton direction="up" actions={[
 						{
-							icon: "save_as",
 							label: "Save as Roblox outfit",
+							icon: "save_as",
 							dangerous: false,
 							onTriggered: saveAsRobloxOutfit
 						},
 						{
-							icon: "draw",
+							label: "Export",
+							icon: "output",
+							dangerous: false,
+							onTriggered: () => {
+								if (editedOutfit) {
+									util.exportOutfits([editedOutfit]);
+								}
+							},
+						},
+						{
 							label: "Overwrite",
+							icon: "draw",
 							dangerous: false,
 							onTriggered: overwriteOutfit,
 						},
 						{
-							icon: "delete_forever",
+							label: "Duplicate",
+							icon: "content_copy",
+							dangerous: false,
+							onTriggered: duplicateOutfit,
+						},
+						{
 							label: "Delete",
+							icon: "delete_forever",
 							dangerous: true,
 							onTriggered: () => deleteOutfitDialogVisible = true
 						}
@@ -286,12 +306,20 @@
 				</div>
 				<div class="tags">
 					<div class="header">Tags</div>
-					<TextField icon="sell" placeholder="Add a tag..." maxLength={25} bind:value={tagName} on:enter={addTag} />
+					<TextField
+						icon="sell"
+						placeholder="Add a tag..."
+						maxLength={25}
+						autocomplete={true}
+						suggestions={allTags.filter(tag => !editedOutfit?.tags.includes(tag) && tag.toLocaleLowerCase().includes(tagName.toLocaleLowerCase())).splice(0, 4)}
+						on:enter={addTag}
+						bind:value={tagName} />
 					<div class="list">
-						{#each editedOutfit.tags as tag}
+						<!-- We wrap tags in objects with their original index, because their index will change after we sort them alphabetically -->
+						{#each editedOutfit.tags.map((v, i) => ({ id: i, label: v })).toSorted((a, b) => a.label.localeCompare(b.label)) as tag}
 							<div class="tag">
-								<div class="content">{tag}</div>
-								<button class="remove" on:click={() => removeTag(tag)}>
+								<div class="content">{tag.label}</div>
+								<button class="remove" on:click={() => removeTag(tag.id)}>
 									<div class="icon">
 										<span class="material-symbols-rounded">close</span>
 									</div>

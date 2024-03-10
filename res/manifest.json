@@ -1,21 +1,28 @@
 {
 	"$schema": "https://json.schemastore.org/chrome-manifest",
 
+	"key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmD0Vju9W1/p5mxntt7ozkj9Q9WkjT0TrdzR4T6/ac+IwTWkKCngQGkEnV0uepGA55FxMpNXCeYWBWr9wYgfVR63Fp3ly5ejarIqGTkbfy+Dikzz6pFSuNOkoWAFYCei93vHICIjpBQIOsug5C1dmdBpu6TCeGOJ7JZHETqpnaF54h2vAE7GyvExInQFHw/skPjZZYtnbjyLf/qzI8/8pDv745hQVMP8HH9a50cBA69GgTi2shwIDPE945fXjo3LFmhMXQnac0Et6LB/QxvAJ3Gi/Zokb56cP9cTTP3bEVzmuQIbc40lDp7Wzr0hV2+zerXekuEImFHKKiJAGvCh5TQIDAQAB",
+
 	"manifest_version": 3,
 
 	"name": "Vanita",
 	"description": "Save, and wear Roblox outfits with nice-to-have features like importing, exporting, and tagging.",
-	"version": "3.2.0",
+	"version": "3.3.0",
 
 	"permissions": [
 		"activeTab",
 		"storage",
 		"unlimitedStorage",
-		"scripting"
+		"scripting",
+		"identity"
 	],
 
 	"optional_permissions": [
 		"downloads"
+	],
+
+	"host_permissions": [
+		"https://www.googleapis.com/*"
 	],
 
 	"icons": {
@@ -24,5 +31,18 @@
 
 	"action": {
 		"default_popup": "index.html"
+	},
+
+	"background": {
+		"service_worker": "THIS INFORMATION WILL BE FULFILLED BY TRANSFORM SCRIPT",
+		"type": "module"
+	},
+
+	"oauth2": {
+		"client_id": "1092575241546-f2bfa23o76eqd3apmtk5bllj94pa6uuf.apps.googleusercontent.com",
+		"scopes": [
+			"https://www.googleapis.com/auth/drive.appdata",
+			"https://www.googleapis.com/auth/drive.file"
+		]
 	}
 }

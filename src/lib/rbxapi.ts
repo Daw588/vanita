@@ -1,5 +1,5 @@
 
-import * as browser from "./browser";
+import * as browser from "./core/browser";
 
 export type BodyColors = {
 	headColorId: number,

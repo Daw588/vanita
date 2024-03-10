@@ -1,29 +1,32 @@
 {
-	"name": "vanita",
 	"private": true,
-	"version": "3.2.0",
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"build": "vite build && node scripts/manifest-transform.mjs",
+		"build": "vite build && tsx scripts/transform.ts",
+		"package": "tsx scripts/package.ts",
 		"preview": "vite preview",
 		"check": "svelte-check --tsconfig ./tsconfig.json"
 	},
 	"devDependencies": {
+		"@minify-html/node": "^0.15.0",
 		"@sveltejs/vite-plugin-svelte": "^2.4.2",
 		"@tsconfig/svelte": "^5.0.0",
 		"@types/chrome": "^0.0.254",
 		"@types/lodash.merge": "^4.6.9",
+		"@types/node": "^20.11.25",
+		"lightningcss": "^1.24.0",
+		"node-html-parser": "^6.1.12",
 		"sass": "^1.69.6",
 		"svelte": "^4.0.5",
 		"svelte-check": "^3.4.6",
 		"tslib": "^2.6.0",
+		"tsx": "^4.7.1",
 		"typescript": "^5.0.2",
-		"vite": "^4.4.5",
-		"vite-plugin-html": "^3.2.1"
+		"vite": "^5.1.5",
+		"vite-plugin-html": "^3.2.2"
 	},
 	"dependencies": {
-		"lodash.merge": "^4.6.2",
 		"zod": "^3.22.4"
 	}
 }
