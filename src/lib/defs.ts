@@ -104,3 +104,20 @@ export type Settings = zod.infer<typeof Settings>;
 export const Backup = zod.object({
 	timeSinceLastBackup: zod.number().int()
 }).strict();
+
+export const OAuth2 = zod.object({
+	google: zod.object({
+		/**
+		 * The token used to refresh the access token.
+		 */
+		refreshToken: zod.string(),
+		accessToken: zod.string(),
+
+		/**
+		 * Timestamp in milliseconds that determines expiration of the access token
+		 */
+		accessExpiry: zod.number().int(),
+	}).strict().optional()
+}).strict();
+
+export type OAuth2 = zod.infer<typeof OAuth2>;

@@ -1,4 +1,4 @@
-import { Err, Ok, type Result } from "./core/result";
+import { Err, Ok, type Result } from "./result";
 
 type File = {
 	/**

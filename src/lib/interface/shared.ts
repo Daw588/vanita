@@ -1,6 +1,6 @@
 import createInfoDialog from "../create-info-dialog";
-import * as browser from "../core/browser";
 import { settings } from "../stores";
+import { GoogleOAuth2 } from "../oauth2";
 
 const lackOfAuthorizationForCloudProvider = createInfoDialog<"authorize" | "disable">({
 	title: "There is a problem with the backup feature!",
@@ -15,9 +15,10 @@ const lackOfAuthorizationForCloudProvider = createInfoDialog<"authorize" | "disa
 export async function promptLackOfAuthForCloudProvider() {
 	const response = await lackOfAuthorizationForCloudProvider.invoke();
 	if (response === "authorize") {
-		await chrome.identity.clearAllCachedAuthTokens();
-		const token = await browser.getAuthToken({ interactive: true });
-		if (token.success) {
+		await GoogleOAuth2.revokeAccess();
+
+		const token = await GoogleOAuth2.getToken({ interactive: true });
+		if (token) {
 			return "authorized";
 		}
 	} else if (response === "disable") {

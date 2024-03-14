@@ -7,9 +7,12 @@ import perstore from "./lib/perstore";
 
 async function deleteAutomaticRestorePointsAfterIndex(restorePoints: backup.RestorePoint[], index: number) {
 	const automaticRestorePoints = restorePoints.filter(v => v.automatic === true);
+	console.log("automatic restore points", automaticRestorePoints);
+
 	if (automaticRestorePoints.length > index - 1) {
-		// Start 4th element, and continue until the end
-		for (let i = index; i < automaticRestorePoints.length; i++) {
+		// Start i element, and continue until the end
+		for (let i = index - 1; i < automaticRestorePoints.length; i++) {
+			console.log("deleting old restore point", i, automaticRestorePoints[i].fileId);
 			await backup.deleteRestorePoint(automaticRestorePoints[i].fileId);
 		}
 	}

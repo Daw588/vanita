@@ -7,7 +7,7 @@
 
 	"name": "Vanita",
 	"description": "Save, and wear Roblox outfits with nice-to-have features like importing, exporting, and tagging.",
-	"version": "3.3.0",
+	"version": "3.4.0",
 
 	"permissions": [
 		"activeTab",
@@ -22,7 +22,8 @@
 	],
 
 	"host_permissions": [
-		"https://www.googleapis.com/*"
+		"https://www.googleapis.com/*",
+		"https://vanita-s1.glitch.me/*"
 	],
 
 	"icons": {

@@ -238,6 +238,9 @@ export async function saveJsonFile(filename: string, data: string): Promise<void
 	})
 }
 
+/**
+ * @deprecated Use OAuth2 API instead
+ */
 export async function getAuthToken({ interactive }: { interactive: boolean }): Promise<Result<string, "session_expired" | "no_token">> {
 	const [err, auth] = await to(chrome.identity.getAuthToken({ interactive }));
 	if (err) {
@@ -265,6 +268,16 @@ export class LocalStorage<T extends zod.ZodTypeAny> {
 	async read() {
 		const records = await chrome.storage.local.get(this.name);
 		const value = records[this.name] || this.defaultValue;
+
+		const emptyRecord = records[this.name] === undefined;
+		if (emptyRecord) {
+			// Using default value, write the default value
+			const success = this.write(this.defaultValue);
+			if (!success) {
+				throw "This should not happen";
+			}
+		}
+
 		const result = this.validator.safeParse(value);
 		return result as zod.SafeParseReturnType<any, zod.infer<T>>;
 	}
@@ -346,6 +359,50 @@ export function listenForServiceWorkerEvents(callback: Callback) {
 		}
 	});
 }
+
+export async function isChrome() {
+	try {
+		await chrome.identity.getAuthToken({ interactive: false });
+		return true;
+	} catch (msg) {
+		// Error: Function unsupported.
+		return false;
+	}
+}
+
+// export function getBrowserType() {
+// 	// @ts-ignore
+// 	const isOpera = (!!window.opr && !!opr.addons) || !!window.opera || navigator.userAgent.indexOf(" OPR/") >= 0;
+
+// 	// @ts-ignore
+// 	const isFirefox = typeof InstallTrigger !== "undefined";
+
+// 	// @ts-ignore
+// 	// eslint-disable
+// 	const isIE = false || !!document.documentMode;
+
+// 	// @ts-ignore
+// 	const isEdge = !isIE && !!window.StyleMedia;
+
+// 	// The other browsers are trying to be more like Chrome, so picking
+// 	// capabilities which are in Chrome, but not in others is a moving
+// 	// target. Just default to Chrome if none of the others is detected.
+// 	const isChrome = !isOpera && !isFirefox && !isIE && !isEdge;
+
+// 	if (isChrome) {
+// 		return "chrome";
+// 	} else if (isOpera) {
+// 		return "opera";
+// 	} else if (isFirefox) {
+// 		return "firefox";
+// 	} else if (isEdge) {
+// 		return "edge";
+// 	} else if (isIE) {
+// 		return "internet_explorer";
+// 	} else {
+// 		return "unknown";
+// 	}
+// }
 
 // export function print(...args: any[]) {
 // 	if (DEV) {

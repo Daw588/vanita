@@ -1,5 +1,6 @@
 import { DEV } from "./globals";
 import App from "./App.svelte";
+import * as browser from "./lib/core/browser";
 
 const app = new App({
 	target: document.getElementById("app") as HTMLDivElement,
@@ -29,3 +30,7 @@ if (DEV) {
 		await chrome.storage.session.set({ versionSignature });
 	}
 }
+
+(async () => {
+	console.log("is chrome", await browser.isChrome());
+})();

@@ -11,6 +11,7 @@
 	import { Snackbar } from "../lib/snackbar";
 	import RBXApi from "../lib/rbxapi";
 	import Dialog from "./core/InfoDialog.svelte";
+	import AssetViewDialog from "./AssetViewDialog.svelte";
 
 	export let open: boolean = false;
 	export let outfit: defs.Outfit | undefined;
@@ -107,7 +108,7 @@
 		editedOutfit = editedOutfit; // Trigger UI refresh
 	}
 
-	function loadOutfit() {
+	async function loadOutfit() {
 		if (outfit) {
 			editedOutfit = structuredClone(outfit); // Clone to avoid sharing reference
 			now = Date.now(); // Date to use for "now" when dealing with "modified" and "created" timestamps
@@ -177,12 +178,18 @@
 		}
 	}
 
+	let assetViewDialog = {
+		open: false
+	};
+
 	$: if (outfit) { // When outfit is set/changed, update the variables
 		loadOutfit();
 	}
 </script>
 
 <div class="root" data-open={open}>
+	<AssetViewDialog open={assetViewDialog.open} outfit={editedOutfit} rbxapi={rbxapi} on:close={() => assetViewDialog.open = false} />
+
 	<Dialog
 		title="Deletion Confirmation"
 		description="The current outfit that you are editing will be permanently deleted. This action is irreversible. Are you sure?"
@@ -237,6 +244,12 @@
 					<PrimaryButton label="Save" icon="save" on:click={saveButtonClicked} grow={true} />
 					<ExpandableActionsButton direction="up" actions={[
 						{
+							label: "View Assets",
+							icon: "apparel",
+							dangerous: false,
+							onTriggered: () => assetViewDialog.open = true
+						},
+						{
 							label: "Save as Roblox outfit",
 							icon: "save_as",
 							dangerous: false,
@@ -286,46 +299,58 @@
 						data-is-editing={isEditingName} />
 					<SquareButton icon={isEditingName ? "done" : "edit"} on:click={onEditOutfitNameButtonClicked} />
 				</div>
-				<div class="properties">
-					<div class="property">
-						<div class="key">Created:</div>
-						<div class="value">{util.timeAgo(editedOutfit.created, now)}</div>
+				<div class="side">
+					<div class="properties">
+						<div class="property">
+							<div class="key">Created:</div>
+							<div class="value">{util.timeAgo(editedOutfit.created, now)}</div>
+						</div>
+						<div class="property">
+							<div class="key">Modified:</div>
+							<div class="value">{editedOutfit.modified === 0 ? "never" : util.timeAgo(editedOutfit.modified, now)}</div>
+						</div>
+						<div class="property">
+							<div class="key">Last Used:</div>
+							<div class="value">{editedOutfit.lastUsed === 0 ? "never" : util.timeAgo(editedOutfit.lastUsed, now)}</div>
+						</div>
+						<div class="property">
+							<div class="key">Used:</div>
+							<div class="value">{editedOutfit.useCount} time{editedOutfit.useCount === 1 ? "" : "s"}</div>
+						</div>
 					</div>
-					<div class="property">
-						<div class="key">Modified:</div>
-						<div class="value">{editedOutfit.modified === 0 ? "never" : util.timeAgo(editedOutfit.modified, now)}</div>
-					</div>
-					<div class="property">
-						<div class="key">Last Used:</div>
-						<div class="value">{editedOutfit.lastUsed === 0 ? "never" : util.timeAgo(editedOutfit.lastUsed, now)}</div>
-					</div>
-					<div class="property">
-						<div class="key">Used:</div>
-						<div class="value">{editedOutfit.useCount} time{editedOutfit.useCount === 1 ? "" : "s"}</div>
-					</div>
-				</div>
-				<div class="tags">
-					<div class="header">Tags</div>
-					<TextField
-						icon="sell"
-						placeholder="Add a tag..."
-						maxLength={25}
-						autocomplete={true}
-						suggestions={allTags.filter(tag => !editedOutfit?.tags.includes(tag) && tag.toLocaleLowerCase().includes(tagName.toLocaleLowerCase())).splice(0, 4)}
-						on:enter={addTag}
-						bind:value={tagName} />
-					<div class="list">
-						<!-- We wrap tags in objects with their original index, because their index will change after we sort them alphabetically -->
-						{#each editedOutfit.tags.map((v, i) => ({ id: i, label: v })).toSorted((a, b) => a.label.localeCompare(b.label)) as tag}
-							<div class="tag">
-								<div class="content">{tag.label}</div>
-								<button class="remove" on:click={() => removeTag(tag.id)}>
-									<div class="icon">
-										<span class="material-symbols-rounded">close</span>
-									</div>
-								</button>
+					<!-- <div class="section">
+						<div class="header">Assets</div>
+						<div class="property">
+							<div class="key">Current Cost:</div>
+							<div class="value">
+								<img src="/robux.svg" width={24} height={24} alt="Robux currency icon" />
+								{util.formatNumber(currentCostInRobux)}
 							</div>
-						{/each}
+						</div>
+					</div> -->
+					<div class="section tags">
+						<div class="header">Tags</div>
+						<TextField
+							icon="sell"
+							placeholder="Add a tag..."
+							maxLength={25}
+							autocomplete={true}
+							suggestions={allTags.filter(tag => !editedOutfit?.tags.includes(tag) && tag.toLocaleLowerCase().includes(tagName.toLocaleLowerCase())).splice(0, 4)}
+							on:enter={addTag}
+							bind:value={tagName} />
+						<div class="list">
+							<!-- We wrap tags in objects with their original index, because their index will change after we sort them alphabetically -->
+							{#each editedOutfit.tags.map((v, i) => ({ id: i, label: v })).toSorted((a, b) => a.label.localeCompare(b.label)) as tag}
+								<div class="tag">
+									<div class="content">{tag.label}</div>
+									<button class="remove" on:click={() => removeTag(tag.id)}>
+										<div class="icon">
+											<span class="material-symbols-rounded">close</span>
+										</div>
+									</button>
+								</div>
+							{/each}
+						</div>
 					</div>
 				</div>
 			</div>
@@ -433,6 +458,15 @@
 			flex-grow: 1;
 			gap: 15px;
 
+			.side {
+				display: flex;
+				flex-direction: column;
+				gap: 15px;
+				height: 100%;
+				max-height: 250px;
+				overflow-y: auto;
+			}
+
 			.name {
 				display: flex;
 				flex-direction: row;
@@ -463,6 +497,7 @@
 				.property {
 					display: flex;
 					flex-direction: row;
+					// align-items: center;
 					gap: 5px;
 					font-size: 14px;
 
@@ -471,12 +506,15 @@
 					}
 
 					.value {
+						// display: flex;
+						// flex-direction: row;
+						// align-items: center;
 						color: #fefefe;
 					}
 				}
 			}
 
-			.tags {
+			.section {
 				display: flex;
 				flex-direction: column;
 				gap: 15px;
@@ -485,7 +523,9 @@
 					font-size: 16px;
 					font-weight: 500;
 				}
+			}
 
+			.tags {
 				.list {
 					display: flex;
 					flex-direction: row;

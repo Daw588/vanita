@@ -12,8 +12,9 @@
 	import createInfoDialog from "../lib/create-info-dialog";
 	import * as backup from "../lib/backup";
 	import { promptLackOfAuthForCloudProvider } from "../lib/interface/shared";
-	import * as browser from "../lib/core/browser";
 	import { settings } from "../lib/stores";
+	import { GoogleOAuth2 } from "../lib/oauth2";
+	// import { EXTENSION_ID } from "../globals";
 
 	const deleteRestorePointConfirmationPrompt = createInfoDialog({
 		title: "Deletion Confirmation",
@@ -76,8 +77,48 @@
 	let page: Page = "connect-provider";
 
 	async function connect() {
-		const token = await browser.getAuthToken({ interactive: true });
-		if (token.success) {
+		// Experimental support for Google OAuth2 in non Chrome browsers
+		// turns out i need a client_secret in order to get refresh tokens which can last up to 6 months
+		// while using response_type token without access_type returns a token which expires in about an hour (very undesirable for automatic backup)
+		// in the future we might get server involved so we can complete the OAuth2 via it, and get the refresh tokens
+		// for now, this will only work for browsers that support getAuthToken, assuming it's probably only Chrome
+
+		// const authParams = new URLSearchParams({
+		// 	client_id: CLIENT_ID,
+		// 	redirect_uri: REDIRECT_URL,
+		// 	response_type: "code",
+		// 	access_type: "offline",
+		// 	scope: [
+		// 		"https://www.googleapis.com/auth/drive.appdata",
+		// 		"https://www.googleapis.com/auth/drive.file"
+		// 	].join(" "),
+		// });
+
+		// if (authUrl) {
+		// 	console.log(authUrl);
+
+		// 	const url = new URL(authUrl);
+
+		// 	console.log(url.hash);
+
+		// 	const params = new URLSearchParams(url.hash.substring(1));
+		// 	const authToken = params.get("auth_token");
+		// 	const tokenType = params.get("token_type");
+		// 	const expiresIn = params.get("expires_in");
+		// 	const scope = params.get("scope");
+
+		// 	console.log("OAuth2 consent success", { authToken, tokenType, expiresIn, scope });
+		// }
+
+		// const auth = await chrome.identity.getAuthToken({ interactive: true });
+		// console.log(auth);
+
+		// if (browser.getBrowserType() === "opera") {
+
+		// }
+
+		const token = await GoogleOAuth2.getToken({ interactive: true });
+		if (token) {
 			// Success!
 			page = "configuration";
 		}
@@ -120,8 +161,8 @@
 
 	// Whenever dialog gets opened
 	async function onOpen() {
-		const token = await browser.getAuthToken({ interactive: false });
-		if (token.success) {
+		const token = await GoogleOAuth2.getToken({ interactive: false });
+		if (token) {
 			// Connected
 			page = "configuration";
 
@@ -197,18 +238,8 @@
 			console.log("Disconnecting...");
 			loadingScreenEnabled = true;
 
-			const token = await browser.getAuthToken({ interactive: false });
-			if (token.success) {
-				const params = new URLSearchParams({
-					token: token.value
-				});
-
-				const res = await fetch("https://accounts.google.com/o/oauth2/revoke?" + params.toString());
-				if (res.ok) {
-					await chrome.identity.removeCachedAuthToken({ token: token.value });
-					settings.set({ backupEnabled: false });
-					console.log("Success!");
-				}
+			if (await GoogleOAuth2.revokeAccess()) {
+				settings.set({ backupEnabled: false });
 			}
 
 			loadingScreenEnabled = false;

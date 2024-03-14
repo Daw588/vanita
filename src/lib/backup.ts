@@ -1,9 +1,9 @@
 import { Outfits } from "./defs";
 import { outfits, settings } from "./stores";
-import * as GoogleDrive from "./google-drive";
-import * as browser from "./core/browser";
+import * as GoogleDrive from "./core/google-drive";
 import perstore from "./perstore";
 import { Ok, Err, type Result } from "./core/result";
+import { GoogleOAuth2 } from "./oauth2";
 
 type Metadata = {
 	createdAt: number,
@@ -37,12 +37,12 @@ function encodeMetadata(metadata: Metadata): string {
 }
 
 export async function getRestorePoints(): Promise<Result<RestorePoint[], "user_unauthenticated" | "google_drive_api_failure">> {
-	const token = await browser.getAuthToken({ interactive: false });
-	if (!token.success) {
+	const token = await GoogleOAuth2.getToken({ interactive: false });
+	if (!token) {
 		return Err("user_unauthenticated");
 	}
 
-	const res = await GoogleDrive.list(token.value);
+	const res = await GoogleDrive.list(token);
 	if (!res.success) {
 		return Err("user_unauthenticated");
 	}
@@ -63,12 +63,12 @@ export async function getRestorePoints(): Promise<Result<RestorePoint[], "user_u
 }
 
 export async function deleteRestorePoint(fileId: string): Promise<Result<void, "user_unauthenticated" | "google_drive_api_failure">> {
-	const token = await browser.getAuthToken({ interactive: false });
-	if (!token.success) {
+	const token = await GoogleOAuth2.getToken({ interactive: false });
+	if (!token) {
 		return Err("user_unauthenticated");
 	}
 
-	const success = await GoogleDrive.deleteFile(token.value, fileId);
+	const success = await GoogleDrive.deleteFile(token, fileId);
 	if (!success) {
 		return Err("google_drive_api_failure");
 	}
@@ -81,19 +81,19 @@ export async function deleteRestorePoint(fileId: string): Promise<Result<void, "
  * Returns a boolean value which indicates whether the operation was successful or not.
  */
 export async function deleteAllRestorePoints(): Promise<Result<void, "user_unauthenticated" | "google_drive_api_failure">> {
-	const token = await browser.getAuthToken({ interactive: false });
-	if (!token.success) {
+	const token = await GoogleOAuth2.getToken({ interactive: false });
+	if (!token) {
 		return Err("user_unauthenticated");
 	}
 
-	const res = await GoogleDrive.list(token.value);
+	const res = await GoogleDrive.list(token);
 	if (!res.success) {
 		return Err("google_drive_api_failure");
 	}
 
 	for (const file of res.value.files) {
 		if (file.name.startsWith("outfits-")) {
-			await GoogleDrive.deleteFile(token.value, file.id);
+			await GoogleDrive.deleteFile(token, file.id);
 		}
 	}
 
@@ -101,12 +101,12 @@ export async function deleteAllRestorePoints(): Promise<Result<void, "user_unaut
 }
 
 export async function restoreFromRestorePoint(fileId: string): Promise<Result<void, "user_unauthenticated" | "file_corrupted">> {
-	const token = await browser.getAuthToken({ interactive: false });
-	if (!token.success) {
+	const token = await GoogleOAuth2.getToken({ interactive: false });
+	if (!token) {
 		return Err("user_unauthenticated");
 	}
 
-	const data = await GoogleDrive.getData(token.value, fileId);
+	const data = await GoogleDrive.getData(token, fileId);
 
 	// Ensure the data passes structure validation before overwriting,
 	// we don't want to corrupt user's data if the file is corrupted or uses invalid format
@@ -119,9 +119,9 @@ export async function restoreFromRestorePoint(fileId: string): Promise<Result<vo
 	return Ok();
 }
 
-export async function createRestorePoint({ automatic }: { automatic: boolean }): Promise<Result<void, "user_unauthenticated" | "could_not_read_outfits" | "google_drive_api_failure">> {
-	const token = await browser.getAuthToken({ interactive: false });
-	if (!token.success) {
+export async function createRestorePoint({ automatic }: { automatic: boolean }): Promise<Result<void, "user_unauthenticated" | "could_not_read_outfits" | "google_drive_api_failure" | "no_outfits_found">> {
+	const token = await GoogleOAuth2.getToken({ interactive: false });
+	if (!token) {
 		return Err("user_unauthenticated");
 	}
 
@@ -130,12 +130,19 @@ export async function createRestorePoint({ automatic }: { automatic: boolean }):
 		return Err("could_not_read_outfits");
 	}
 
+	// Don't make empty backups/restore points, because it doesn't make sense,
+	// and additionally, it could overwrite existing backups that are meaningful with nothing
+	// which would result in a loss of data
+	if (result.data.length === 0) {
+		return Err("no_outfits_found");
+	}
+
 	const data = JSON.stringify(result.data);
 
 	const utf8Encode = new TextEncoder();
 	const binaryData = utf8Encode.encode(data);
 
-	const success = await GoogleDrive.upload(token.value, {
+	const success = await GoogleDrive.upload(token, {
 		context: "app",
 		name: encodeMetadata({
 			createdAt: Date.now(),
