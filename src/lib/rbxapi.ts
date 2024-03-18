@@ -1,5 +1,6 @@
 
 import * as browser from "./core/browser";
+import { Err, Ok, type Result } from "./core/result";
 
 export type BodyColors = {
 	headColorId: number,
@@ -134,6 +135,40 @@ const ASSET_IMAGE_SIZING = [
 
 type AssetImageSizing = typeof ASSET_IMAGE_SIZING[number];
 
+type GetBundleFromAssetResponse = {
+	previousPageCursor: string | null,
+	nextPageCursor: string | null,
+	data: {
+		id: number,
+		name: string,
+		description: string,
+		bundleType: "AvatarAnimations",
+		items: {
+			owned: boolean,
+			id: number,
+			name: string,
+			type: "Asset"
+		}[],
+		creator: {
+			id: number,
+			name: string,
+			type: "User" | "Group",
+			hasVerifiedBadge: boolean
+		},
+		product: {
+			id: number,
+			type: "productType",
+			isPublicDomain: boolean,
+			isForSale: boolean,
+			priceInRobux: number,
+			isFree: boolean,
+			noPriceText: null
+		},
+		itemRestrictions: ("LimitedUnique")[],
+		collectibleItemDetail: null
+	}[]
+}
+
 export default class RBXApi {
 	private csrfToken: string;
 
@@ -264,6 +299,23 @@ export default class RBXApi {
 		return response.body as GetCurrentAvatarResponseBody
 	}
 
+	public async getAvatarFromUserId(userId: number) {
+		const currentTabId = await browser.getCurrentTabId();
+		if (!currentTabId) {
+			throw "Cannot make a request without an active tab being present";
+		}
+
+		const response = await browser.fetchOnTab(currentTabId, {
+			url: `https://avatar.roblox.com/v1/users/${userId}/avatar`,
+			method: "GET",
+			headers: { "x-csrf-token": this.csrfToken },
+			credentials: "include",
+			responseEncoding: "json"
+		});
+
+		return response.body as GetCurrentAvatarResponseBody
+	}
+
 	public async getAuthenticatedUser() {
 		const currentTabId = await browser.getCurrentTabId();
 		if (!currentTabId) {
@@ -352,7 +404,7 @@ export default class RBXApi {
 				id: number,
 				name: string,
 				description: string,
-				itemType: "Asset",
+				itemType: "Asset" | "Bundle",
 
 				isOffSale: boolean,
 				price?: number,
@@ -365,7 +417,7 @@ export default class RBXApi {
 				assetType: number,
 				productId: number,
 				itemStatus: unknown[],
-				itemRestrictions: ("LimitedUnique")[],
+				itemRestrictions: ("LimitedUnique" | "Live")[],
 
 				// Creator related
 				creatorHasVerifiedBadge: boolean,
@@ -385,7 +437,7 @@ export default class RBXApi {
 		return data;
 	}
 
-	public async getBundleFromAsset(assetId: number) {
+	public async getBundleFromAsset(assetId: number): Promise<Result<GetBundleFromAssetResponse["data"], number>> {
 		const currentTabId = await browser.getCurrentTabId();
 		if (!currentTabId) {
 			throw "Cannot make a request without an active tab being present";
@@ -404,41 +456,13 @@ export default class RBXApi {
 			responseEncoding: "json"
 		});
 
-		const { data } = response.body as {
-			previousPageCursor: string | null,
-			nextPageCursor: string | null,
-			data: {
-				id: number,
-				name: string,
-				description: string,
-				bundleType: "AvatarAnimations",
-				items: {
-					owned: boolean,
-					id: number,
-					name: string,
-					type: "Asset"
-				}[],
-				creator: {
-					id: number,
-					name: string,
-					type: "User" | "Group",
-					hasVerifiedBadge: boolean
-				},
-				product: {
-					id: number,
-					type: "productType",
-					isPublicDomain: boolean,
-					isForSale: boolean,
-					priceInRobux: number,
-					isFree: boolean,
-					noPriceText: null
-				},
-				itemRestrictions: ("LimitedUnique")[],
-				collectibleItemDetail: null
-			}[]
-		};
+		if (!response.ok) {
+			return Err(response.statusCode);
+		}
 
-		return data;
+		const { data } = response.body as GetBundleFromAssetResponse;
+
+		return Ok(data);
 	}
 
 	public async getAssetThumbnail({ assetIds, returnPolicy, size, format, isCircular }: {

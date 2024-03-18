@@ -11,7 +11,7 @@
 	import { Snackbar } from "../lib/snackbar";
 	import { promptLackOfAuthForCloudProvider } from "../lib/interface/shared";
 
-	import Dialog from "./core/InfoDialog.svelte";
+	import InfoDialog from "./core/InfoDialog.svelte";
 	import CircularProgressBar from "./core/CircularProgressBar.svelte";
 	import PrimaryButton from "./core/PrimaryButton.svelte";
 	import BottomSheetOutfitEditor from "./BottomSheetOutfitEditor.svelte";
@@ -20,6 +20,7 @@
 	import TextField from "./core/TextField.svelte";
 	import SquareButton from "./core/SquareButton.svelte";
 	import Checkbox from "./core/Checkbox.svelte";
+	import Dialog from "./core/Dialog.svelte";
 
 	let rbxapi: RBXApi;
 	let textboxContent = "";
@@ -27,16 +28,24 @@
 	let outfits: defs.Outfit[] = [];
 	let filteredOutfits: defs.Outfit[] = [];
 	let queryTags: { label: string, checked: boolean }[] = [];
-	let userid: number;
+	let authenticatedUserId: number;
 	let lastSaved = 0;
 
 	// Related to wear outfit functionality
-	let loadingAvatar = false;
-	let loadingAvatarThumbnailUrl = "";
-	let loadingAvatarName = "";
+	let avatarLoadingOverlay = {
+		visible: false,
+		avatarThumbnailUrl: "",
+		outfitName: "",
+		loadingMessage: ""
+	};
 
 	let outfitToEdit: defs.Outfit;
 	let editingOutfit = false;
+
+	let invalidOutfitAssetsDialog: { open: boolean, assets: { id: number, name: string, thumbnailUrl?: string }[] } = {
+		open: false,
+		assets: []
+	};
 
 	let deleteAllOutfitsDialogVisible = false;
 	let migrationDialogVisible = false;
@@ -173,16 +182,15 @@
 		}
 	}
 
-	async function addCurrentOutfit() {
-		// Do not accept empty name
-		if (textboxContent.trim() === "") {
-			Snackbar.show("Can't create outfit with empty name!", 3);
-			return;
-		}
+	async function createOutfitFromUserId(userId: number) {
+		// const avatar = await rbxapi.getCurrentAvatar();
 
-		const avatar = await rbxapi.getCurrentAvatar();
-		const thumbnailUrl = await rbxapi.getAvatarThumbnail(userid);
+		const thumbnailUrl = await rbxapi.getAvatarThumbnail(userId);
 		const thumbnailBase64 = await browser.fetchImageBase64(thumbnailUrl);
+		
+		avatarLoadingOverlay.avatarThumbnailUrl = thumbnailBase64;
+
+		const avatar = await rbxapi.getAvatarFromUserId(userId);
 		const now = Date.now();
 
 		const newOutfit = {
@@ -226,16 +234,65 @@
 		}
 	}
 
+	let userIdFromCurrentProfilePage: number | undefined;
+
+	async function getUserIdFromCurrentProfilePage() {
+		const currentTab = await browser.getCurrentTab();
+		if (!currentTab) {
+			return;
+		}
+
+		if (!currentTab.url) {
+			return;
+		}
+
+		// Extract user id from the current profile page
+
+		const url = new URL(currentTab.url);
+		if (!url.pathname.startsWith("/users/")) {
+			return;
+		}
+
+		return parseInt(url.pathname.split("/")[2]);
+	}
+
+	async function addOutfit() {
+		// Do not accept empty name
+		if (textboxContent.trim() === "") {
+			Snackbar.show("Can't create outfit with empty name!", 3);
+			return;
+		}
+
+		avatarLoadingOverlay = {
+			avatarThumbnailUrl: "",
+			outfitName: textboxContent,
+			loadingMessage: userIdFromCurrentProfilePage ? "Creating outfit for the avatar on the page, please wait..." : "Creating outfit for your avatar, please wait...",
+			visible: true
+		};
+
+		await createOutfitFromUserId(userIdFromCurrentProfilePage ?? authenticatedUserId);
+
+		avatarLoadingOverlay.visible = false;
+	}
+
 	async function deleteAllOutfits() {
 		outfits = [];
 		await saveOutfits();
 	}
 
 	async function wearOutfit(outfit: defs.Outfit) {
-		loadingAvatarThumbnailUrl = outfit.thumbnailUrl;
-		loadingAvatarName = outfit.name;
-		
-		loadingAvatar = true;
+		avatarLoadingOverlay = {
+			avatarThumbnailUrl: outfit.thumbnailUrl,
+			outfitName: outfit.name,
+			loadingMessage: "Configuring your avatar, please wait...",
+			visible: true
+		};
+
+		// const assetsDetails = await rbxapi.getCatalogAssetDetails(outfit.character.assets.map(v => v.id));
+		// console.log(assetsDetails);
+		// for (const assetDetails of assetsDetails) {
+			
+		// }
 
 		await rbxapi.setPlayerAvatarType(outfit.character.avatarType);
 		await rbxapi.setBodyColors(outfit.character.bodyColors);
@@ -275,18 +332,36 @@
 			if (setWearingAssets.invalidAssetIds) {
 				const {invalidAssetIds} = setWearingAssets;
 
-				const assetWording = invalidAssetIds.length === 1 ? "asset" : "assets";
-				const hasOrHave = invalidAssetIds.length === 1 ? "has" : "been";
+				const assetsDetails = await rbxapi.getCatalogAssetDetails(invalidAssetIds);
+				const assetsThumbnails = await rbxapi.getAssetThumbnail({
+					assetIds: invalidAssetIds,
+					format: "Png",
+					isCircular: false,
+					returnPolicy: "PlaceHolder",
+					size: "75x75"
+				});
 
-				const listOfAffectedAssets = invalidAssetIds
-					.map(assetId => `<a href="https://www.roblox.com/catalog/${assetId}" target="_blank">${assetId}</a>`).join(",");
+				avatarLoadingOverlay.visible = false;
+				invalidOutfitAssetsDialog = {
+					open: true,
+					assets: assetsDetails.map(assetDetails => (
+						{
+							name: assetDetails.name,
+							id: assetDetails.id,
+							thumbnailUrl: assetsThumbnails.find(thumbnail => thumbnail.targetId === assetDetails.id)?.imageUrl
+						}
+					))
+				}
+				return;
 
-				outfitProblemDialogMessage = `Your outfit has ${invalidAssetIds.length} ${assetWording} that cannot be equipped. The affected ${assetWording} (${listOfAffectedAssets}) ${hasOrHave} been taken off. Your outfit may not look as expected.`;
-				outfitProblemDialogVisible = true;
+				// const listOfAffectedAssets = invalidAssetIds
+				// 	.map(assetId => `<a href="https://www.roblox.com/catalog/${assetId}" target="_blank">${assetId}</a>`).join(",");
 
-				// Remove invalid assets
-				const assets = outfit.character.assets.filter(asset => !invalidAssetIds.includes(asset.id));
-				await rbxapi.setWearingAssets(assets);
+				// outfitProblemDialogVisible = true;
+
+				// // Remove invalid assets
+				// const assets = outfit.character.assets.filter(asset => !invalidAssetIds.includes(asset.id));
+				// await rbxapi.setWearingAssets(assets);
 			}
 		}
 
@@ -296,7 +371,7 @@
 		// TODO: Make request to validate whether the avatar that is being applied matches the avatar returned by the Roblox API
 		// TODO: ^^^ This is important because sometimes the apply feature is not successful, and we don't want to make the user click multiple times as this is bad UX
 
-		loadingAvatar = false;
+		avatarLoadingOverlay.visible = false;
 		outfit.useCount++; // Outfit has been used
 		outfit.lastUsed = Date.now();
 		
@@ -459,7 +534,7 @@
 
 	onMount(async () => {
 		rbxapi = await RBXApi.fromCurrentSession();
-		userid = (await rbxapi.getAuthenticatedUser()).id;
+		authenticatedUserId = (await rbxapi.getAuthenticatedUser()).id;
 
 		// Outfits can be modified from other pages by setting the writable store "outfits"
 		// e.g., the backup feature
@@ -473,27 +548,29 @@
 			}
 		});
 
+		userIdFromCurrentProfilePage = await getUserIdFromCurrentProfilePage();
+
 		await loadOutfits();
 		await runBackupCycle();
 	});
 </script>
 
 <div class="test">
-	<div class="loading" data-open={loadingAvatar}>
+	<div class="loading" data-open={avatarLoadingOverlay.visible}>
 		<div class="outfit">
 			<div class="thumbnail">
-				<img class="main" src={loadingAvatarThumbnailUrl} alt="Loading avatar" />
-				<img class="reflection" src={loadingAvatarThumbnailUrl} alt="Loading avatar" />
+				<img class="main" src={avatarLoadingOverlay.avatarThumbnailUrl} alt="Loading avatar" />
+				<img class="reflection" src={avatarLoadingOverlay.avatarThumbnailUrl} alt="Loading avatar" />
 			</div>
-			<div class="name">{loadingAvatarName}</div>
+			<div class="name">{avatarLoadingOverlay.outfitName}</div>
 		</div>
 		<div class="progress">
 			<CircularProgressBar />
-			<div class="label">Configuring your avatar, please wait...</div>
+			<div class="label">{avatarLoadingOverlay.loadingMessage}</div>
 		</div>
 	</div>
 
-	<Dialog
+	<InfoDialog
 		title="Deletion Confirmation"
 		description="All of your outfits will be permanently deleted. This action is irreversible. Are you sure?"
 		visible={deleteAllOutfitsDialogVisible}
@@ -516,7 +593,7 @@
 			},
 		]} />
 
-	<Dialog
+	<InfoDialog
 		title="Migration Notice"
 		description="All of your outfits have been successfully migrated to a new format. Be aware, the legacy outfits use thumbnails with lower resolution, and thus they will appear blurry in some parts of this extension where higher resolution is required. You can re-add your outfits to fully migrate them."
 		visible={migrationDialogVisible}
@@ -530,7 +607,7 @@
 			},
 		]} />
 
-	<Dialog
+	<InfoDialog
 		title={errorDialog.title ?? ""}
 		description={`${errorDialog.userFacingMessage}<br/><br/><code>${errorDialog.errorData}</code>` ?? ""}
 		visible={errorDialog.visible}
@@ -545,7 +622,7 @@
 		]}
 		allowHTML={true} />
 
-	<Dialog
+	<InfoDialog
 		title="There was a problem with your outfit"
 		description={outfitProblemDialogMessage}
 		visible={outfitProblemDialogVisible}
@@ -559,10 +636,28 @@
 			},
 		]}
 		allowHTML={true} />
+
+	<Dialog open={invalidOutfitAssetsDialog.open}>
+		<div class="invalid-outfit-assets-dialog">
+			<div class="title">Failed to equip certain assets</div>
+			<div class="description">Roblox server refused to equip the listed assets below. Make sure that you own those assets before retrying.</div>
+			<div class="assets">
+				{#each invalidOutfitAssetsDialog.assets as asset}
+					<a class="asset" href="https://www.roblox.com/catalog/{asset.id}" target="_blank" aria-label={asset.name}>
+						<img class="thumbnail" src={asset.thumbnailUrl} alt="Thumbnail" width={75} height={75} />
+						<!-- <div class="label">{asset.name}</div> -->
+					</a>
+				{/each}
+			</div>
+			<div>
+				<PrimaryButton label="Understood" grow={true} on:click={() => invalidOutfitAssetsDialog.open = false} />
+			</div>
+		</div>
+	</Dialog>
 	
 	<BottomSheetOutfitEditor
 		rbxapi={rbxapi}
-		userId={userid}
+		userId={authenticatedUserId}
 		outfit={outfitToEdit}
 		open={editingOutfit}
 		allTags={queryTags.map(v => v.label)}
@@ -579,7 +674,7 @@
 				suggestions={outfits.map(v => v.name).filter(name => name.toLocaleLowerCase().includes(textboxContent.toLocaleLowerCase())).splice(0, 8)}
 				bind:value={textboxContent} />
 		</div>
-		<PrimaryButton label="Add" icon="add" on:click={addCurrentOutfit} />
+		<PrimaryButton label={userIdFromCurrentProfilePage ? "Add from Page" : "Add Mine"} icon="add" on:click={addOutfit} />
 		<Dropdown label="Tags">
 			<div class="tags-dropdown-tray">
 				{#if queryTags.length === 0}
@@ -1011,6 +1106,67 @@
 				&.selected {
 					border-left: 1px solid #2866df;
 				}
+			}
+		}
+	}
+
+	.invalid-outfit-assets-dialog {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+
+		font-size: 14px;
+
+		background-color: #242424;
+		border-radius: 8px;
+		border: 1px solid #424242;
+		padding: 15px;
+		width: min-content;
+
+		.title {
+			font-size: 16px;
+			font-weight: 500;
+		}
+
+		.description {
+			line-height: 1.4;
+			color: #a9a9a9;
+		}
+
+		.assets {
+			display: flex;
+			flex-direction: row;
+			align-content: flex-start;
+			flex-wrap: wrap;
+			gap: 5px;
+
+			height: 200px;
+			width: calc((75px + 10px) * 4);
+			padding-right: 5px;
+			overflow-y: auto;
+
+			.asset {
+				display: flex;
+				flex-direction: column;
+				gap: 5px;
+
+				.thumbnail {
+					width: 75px;
+					height: 75px;
+					
+					border-radius: 8px;
+					border: 1px solid #3a3a3a;
+					cursor: pointer;
+
+					&:hover {
+						border-color: #2866df;
+					}
+				}
+
+				// .label {
+				// 	max-width: 100px;
+				// 	display: none;
+				// }
 			}
 		}
 	}

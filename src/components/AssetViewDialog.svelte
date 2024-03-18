@@ -65,14 +65,16 @@
 			if (asset.isOffSale && asset.creatorName === "Roblox" && asset.creatorType === "User") {
 				// Probably a bundle
 				const bundles = await rbxapi.getBundleFromAsset(asset.id);
-				if (bundles.length > 0) {
-					// This asset is a bundle
-					const bundle = bundles[0];
-					if (!bundle.product.isForSale) {
-						totalOfOffSaleAssets++;
-					}
+				if (bundles.success) {
+					if (bundles.value.length > 0) {
+						// This asset is a bundle
+						const bundle = bundles.value[0];
+						if (!bundle.product.isForSale) {
+							totalOfOffSaleAssets++;
+						}
 
-					totalPrice += bundle.product.priceInRobux;
+						totalPrice += bundle.product.priceInRobux;
+					}
 				}
 			} else {
 				// Not a bundle
