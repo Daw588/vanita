@@ -9,6 +9,7 @@
 - Organize your outfits with tags.
 - Search through your outfits either by name, or by the tags.
 - Automatically and manually backup your outfits to the cloud via Google Drive.
+- Copy outfit of any Roblox user.
 
 ### Why choose this over other Roblox extensions?
 
