@@ -3,7 +3,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
-import { zip } from "./lib/zip.js";
+import { zip } from "./lib/zip";
 
 const IN_FOLDER = "dist/extension";
 const OUT_FOLDER = "dist";

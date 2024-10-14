@@ -18,6 +18,22 @@ export type QueryTag = {
 
 export type TagQueryMode = "and" | "or"
 
+export const SORT_TYPE = [
+	"Date Created",
+	"Last Modified",
+	"Last Used",
+	"Alphabetical"
+] as const;
+
+export type SortType = typeof SORT_TYPE[number];
+
+export const SORT_ORDER = [
+	"Ascending",
+	"Descending"
+] as const;
+
+export type SortOrder = typeof SORT_ORDER[number];
+
 export function duplicateOutfit(outfits: Outfit[], target: Outfit) {
 	const duplicate = structuredClone(target);
 
@@ -381,4 +397,89 @@ export async function saveAsRobloxOutfit(rbxapi: RBXApi, outfit: LoadedOutfit) {
 			proportion: clamp(outfit.proportion, 0, 1)
 		}
 	});
+}
+
+export function sortOutfits(outfits: LoadedOutfit[], sortType: SortType, sortOrder: SortOrder) {
+	if (sortType === "Alphabetical") {
+		if (sortOrder === "Ascending") {
+			return outfits.sort((a, b) => a.name.localeCompare(b.name));
+		}
+		return outfits.sort((a, b) => b.name.localeCompare(a.name));
+	} else if (sortType === "Last Modified") {
+		if (sortOrder === "Ascending") {
+			return outfits.sort((a, b) => b.modified - a.modified);
+		}
+		return outfits.sort((a, b) => a.modified - b.modified);
+	} else if (sortType === "Date Created") {
+		if (sortOrder === "Ascending") {
+			return outfits.sort((a, b) => b.created - a.created);
+		}
+		return outfits.sort((a, b) => a.created - b.created);
+	} else /* if (sortType === "Last Used") */ {
+		if (sortOrder === "Ascending") {
+			return outfits.sort((a, b) => b.lastUsed - a.lastUsed);
+		}
+		return outfits.sort((a, b) => a.lastUsed - b.lastUsed);
+	}
+}
+
+export function queryOutfits(
+	outfits: LoadedOutfit[],
+	str: string,
+	tags: QueryTag[],
+	tagMode: TagQueryMode,
+	hideUnused: boolean
+) {
+	const normalizedQuery = str.trim().toLocaleLowerCase();
+	const selectedQueryTags = tags.filter(v => v.checked);
+
+	// Transform
+	if (hideUnused) {
+		outfits = outfits.filter(outfit => outfit.useCount !== 0);
+	}
+
+	// Transform
+	if (normalizedQuery !== "") {
+		outfits = outfits.filter(outfit => {
+			const normalizedName = outfit.name.toLocaleLowerCase();
+
+			if (normalizedName.includes(normalizedQuery)) {
+				return true;
+			}
+
+			return false;
+		});
+	}
+
+	// Transform
+	if (selectedQueryTags.length !== 0) {
+		outfits = outfits.filter(outfit => {
+			if (tagMode === "and") {
+				// Must have all the selected (checked) tags
+
+				if (outfit.tags.length === 0) {
+					return false;
+				}
+
+				for (let tagId = 0; tagId < tags.length; tagId++) {
+					if (!tags[tagId]!.checked) continue;
+
+					if (!outfit.tags.includes(tagId)) {
+						return false;
+					}
+				}
+
+				return true;
+			}
+
+			// Has to have at least one tag that is selected (checked)
+			return outfit.tags.some(outfitTagId =>
+				tags.some(
+					(queryTag, queryTagId) => queryTagId === outfitTagId && queryTag.checked
+				)
+			);
+		});
+	}
+
+	return outfits;
 }

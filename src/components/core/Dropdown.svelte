@@ -3,13 +3,15 @@
 
 	type Props = {
 		label: string,
+		anchor: "left" | "right",
+		grow?: boolean,
+		expanded?: boolean,
 		children: Snippet
 	}
 
-	let { label, children }: Props = $props();
+	let { label, children, anchor, grow = false, expanded = $bindable(false) }: Props = $props();
 
 	let root: HTMLDivElement;
-	let expanded = $state<boolean>(false);
 
 	function toggle() {
 		expanded = !expanded;
@@ -31,21 +33,24 @@
 	});
 </script>
 
-<div class="root" bind:this={root}>
-	<button class="button" onclick={toggle}>
-		<div class="label">{label}</div>
-		<div class="icon">
-			<span class="material-symbols-rounded">{expanded ? "arrow_drop_up" : "arrow_drop_down"}</span>
+<div>
+	<div class="root" bind:this={root} data-anchor={anchor} data-expanded={expanded} data-grow={grow}>
+		<button class="button" onclick={toggle}>
+			<div class="label">{label}</div>
+			<div class="icon">
+				<span class="material-symbols-rounded">arrow_drop_down</span>
+			</div>
+		</button>
+		<div class="tray">
+			{@render children()}
 		</div>
-	</button>
-	<div class="tray" data-expanded={expanded}>
-		{@render children()}
 	</div>
 </div>
 
 <style lang="scss">
 	.root {
 		position: relative;
+		display: flex;
 
 		.button {
 			all: unset;
@@ -59,7 +64,7 @@
 			border-radius: 4px;
 			height: 27px;
 
-			// cursor: pointer;
+			cursor: pointer;
 
 			&:hover {
 				background-color: rgba(255, 255, 255, 0.05);
@@ -74,33 +79,17 @@
 			.icon {
 				display: flex;
 				align-items: center;
-				text-align: center;
+				justify-content: center;
 				height: 18px;
 				width: 18px;
 				margin-right: 6px;
-
-				span {
-					width: 0;
-					left: 0;
-					font-size: 24px;
-				}
+				transition: transform 100ms ease;
+				font-size: 24px;
 			}
 		}
 
 		.tray {
 			position: absolute;
-			bottom: 0;
-			right: 0;
-			transform: translateY(calc(100% + 5px)); // TODO: Move the margin of 5px to the "bottom" property
-
-			&[data-expanded=true] {
-				visibility: visible;
-			}
-
-			&[data-expanded=false] {
-				display: none;
-				visibility: collapse;
-			}
 
 			box-shadow: 8.0px 16.0px 16.0px hsl(0deg 0% 0% / 0.25); // Elevation
 			background-color: #171717;
@@ -113,6 +102,45 @@
 			padding: 3px;
 			min-width: 200px;
 			z-index: 6;
+		}
+
+		&[data-grow=true] {
+			.button {
+				flex-grow: 1;
+			}
+		}
+
+		&[data-expanded=true] {
+			.tray {
+				visibility: visible;
+			}
+
+			.button .icon {
+				transform: rotate(180deg);
+			}
+		}
+
+		&[data-expanded=false] {
+			.tray {
+				display: none;
+				visibility: collapse;
+			}
+		}
+
+		&[data-anchor=left] {
+			.tray {
+				top: calc(100% + 5px);
+				left: 0;
+				// transform: translateY(calc(100% + 5px));
+			}
+		}
+
+		&[data-anchor=right] {
+			.tray {
+				bottom: 0;
+				right: 0;
+				transform: translateY(calc(100% + 5px)); // TODO: Move the margin of 5px to the "bottom" property
+			}
 		}
 	}
 </style>

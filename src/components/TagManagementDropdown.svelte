@@ -20,7 +20,7 @@
 	}
 </script>
 
-<Dropdown label="Tags">
+<Dropdown label="Tags" anchor="right">
 	<div class="tray">
 		{#if tags.length === 0}
 			<div class="info">You haven't created any tags yet</div>

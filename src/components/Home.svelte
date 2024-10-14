@@ -16,7 +16,7 @@
 	import TextField from "./core/TextField.svelte";
 	import { AvatarType, outfitSchema, type Outfit, type Wardrobe } from "../modules/wardrobe/codec/v0";
 	import { getUserIdFromCurrentProfilePage } from "../modules/util";
-	import { deleteOutfit, duplicateOutfit, rbxToVec3, wearOutfit, type LoadedOutfit, type QueryTag, type TagQueryMode } from "../modules/wardrobe/outfits";
+	import { deleteOutfit, duplicateOutfit, queryOutfits, rbxToVec3, sortOutfits, wearOutfit, type LoadedOutfit, type QueryTag, type SortOrder, type SortType, type TagQueryMode } from "../modules/wardrobe/outfits";
 	import { hex2rgb } from "../lib/color";
 	import ExportModal from "./ExportModal.svelte";
 	import { clamp } from "../lib/math";
@@ -26,6 +26,8 @@
 	import OutfitSquare from "./OutfitSquare.svelte";
 	import OutfitOperationOverlay from "./OutfitOperationOverlay.svelte";
 	import InvalidOutfitAssetsModal, { type InvalidAsset } from "./InvalidOutfitAssetsModal.svelte";
+	import SquareButton from "./core/SquareButton.svelte";
+	import QueryFilterSideDrawer from "./QueryFilterSideDrawer.svelte";
 
 	let userIdFromCurrentProfilePage = $state<Option<number>>(null);
 	let rbxapi = $state<Option<RBXApi>>(null);
@@ -34,12 +36,19 @@
 	let goutfits = $state<LoadedOutfit[]>([]);
 	let gwardrobe = $state<Option<Wardrobe>>(null);
 
-	let filteredOutfits = $state<LoadedOutfit[]>([]);
-	let queryTags = $state<QueryTag[]>([]);
-	let tagQueryMode = $state<TagQueryMode>("and"); // $state<TagQueryMode>("and");
 	let authenticatedUserId = $state<Option<number>>(null);
 	let lastSaved = $state<number>(0); // 0 means never
 	let exportAllOutfitsModalOpen = $state<boolean>(false);
+
+	let filteredOutfits = $state<LoadedOutfit[]>([]);
+	let queryTags = $state<QueryTag[]>([]);
+	let tagQueryMode = $state<TagQueryMode>("and");
+	
+	let sortType = $state<SortType>("Date Created");
+	let sortOrder = $state<SortOrder>("Ascending");
+	let hideUnused = $state(false);
+
+	let filterMenuOpen = $state(false);
 
 	// Related to wear outfit functionality
 	let avatarLoadingOverlayEnabled = $state<boolean>(false);
@@ -305,71 +314,18 @@
 		// await saveOutfits();
 	}
 
-	// Query/search algorithm
 	$effect(() => {
-		console.debug("query mode changed", tagQueryMode);
+		// Query
+		const queried = queryOutfits(
+			$state.snapshot(goutfits),
+			textboxContent,
+			$state.snapshot(queryTags),
+			tagQueryMode,
+			hideUnused
+		);
 
-		let filtered = goutfits;
-		
-		const normalizedQuery = textboxContent.trim().toLocaleLowerCase();
-		const selectedQueryTags = queryTags.filter(v => v.checked);
-
-		// let searchActive = false;
-		
-		if (normalizedQuery !== "") {
-			// searchActive = true;
-
-			filtered = filtered.filter(outfit => {
-				const normalizedName = outfit.name.toLocaleLowerCase();
-
-				if (normalizedName.includes(normalizedQuery)) {
-					return true;
-				}
-
-				return false;
-			});
-		}
-
-		if (selectedQueryTags.length !== 0) {
-			// searchActive = true;
-
-			filtered = filtered.filter(outfit => {
-				if (tagQueryMode === "and") {
-					// Must have all the selected (checked) tags
-
-					if (outfit.tags.length === 0) {
-						return false;
-					}
-
-					for (let tagId = 0; tagId < queryTags.length; tagId++) {
-						if (!queryTags[tagId]!.checked) continue;
-
-						if (!outfit.tags.includes(tagId)) {
-							return false;
-						}
-					}
-
-					return true;
-				}
-
-				// Has to have at least one tag that is selected (checked)
-				return outfit.tags.some(outfitTagId =>
-					queryTags.some(
-						(queryTag, queryTagId) => queryTagId === outfitTagId && queryTag.checked
-					)
-				);
-			});
-		}
-
-		// TODO: Make this happen once there is setting for this (e.g., "alphabetical", "creation date", "modification date")
-		// and modifiers like "ascending" and "descending"
-
-		// Sort so that the outfits are in alphabetical order
-		// if (!searchActive) {
-		// 	filtered = filtered.sort((a, b) => a.name.localeCompare(b.name))
-		// }
-
-		filteredOutfits = filtered;
+		// Sort
+		filteredOutfits = sortOutfits(queried, sortType, sortOrder);
 	});
 
 	async function fetchRobloxDetails() {
@@ -548,7 +504,14 @@
 		onDuplicateOutfit={outfit => duplicateOutfit(goutfits, $state.snapshot(outfit)) }
 		onDeleteOutfit={outfit => deleteOutfit(goutfits, outfit) }/>
 
+	<QueryFilterSideDrawer
+		bind:open={filterMenuOpen}
+		bind:hideUnused={hideUnused}
+		bind:selectedSortOrder={sortOrder}
+		bind:selectedSortType={sortType} />
+
 	<div class="top">
+		<SquareButton icon="filter_alt" onClick={() => filterMenuOpen = !filterMenuOpen} />
 		<div class="search">
 			<TextField
 				icon="search"
