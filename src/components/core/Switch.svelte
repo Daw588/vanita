@@ -1,5 +1,9 @@
 <script lang="ts">
-	export let checked: boolean;
+	type Props = {
+		checked: boolean
+	}
+
+	let { checked = $bindable() }: Props = $props();
 </script>
 
 <label class="switch">
@@ -17,7 +21,7 @@
 		--color-grey: #3a3a3a;
 		--color-green: #2866df;
 
-		cursor: pointer;
+		// cursor: pointer;
 	}
 
 	.slider {

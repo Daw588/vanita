@@ -1,7 +1,7 @@
 // refresh token should last for more than 6 months when used
 // access token will last for about an hour
 
-import to from "./to";
+import { to } from "./to";
 
 // save expiration timestamp from the expires in
 // then before returning the token, check if it is expired by comparing the timestamp and the current time
@@ -16,7 +16,7 @@ export async function revokeToken(token: string) {
 		token
 	});
 
-	const res = await fetch("https://accounts.google.com/o/oauth2/revoke?" + params.toString());
+	const res = await fetch(`https://accounts.google.com/o/oauth2/revoke?${params.toString()}`);
 	if (!res.ok) {
 		return false;
 	}
@@ -67,7 +67,7 @@ export async function requestConsent() {
 		const scope = resultParams.get("scope");
 
 		if (code && scope) {
-			console.log({ code, scope });
+			console.debug({ code, scope });
 
 			const response = await fetch("https://vanita-s1.glitch.me/oauth2/token", {
 				method: "POST",
@@ -92,4 +92,5 @@ export async function requestConsent() {
 			};
 		}
 	}
+	return;
 }

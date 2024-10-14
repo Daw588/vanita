@@ -1,30 +1,25 @@
 <script lang="ts">
-	import { createEventDispatcher } from "svelte";
+	type Props = {
+		value: string,
+		icon?: string,
+		placeholder?: string,
+		maxLength?: number,
+		autocomplete: boolean,
+		suggestions: string[],
+		onEnter?: (text: string) => void,
+		onChange?: (text: string) => void
+	}
 
-	type Optional<T> = T | undefined;
+	let { value = $bindable(), icon, placeholder, maxLength, autocomplete, suggestions, onEnter, onChange }: Props = $props();
 
-	export let value: string = "";
-	export let icon: Optional<string> = undefined;
-	export let placeholder: Optional<string> = undefined;
-	export let maxLength: Optional<number> = undefined;
-	export let autocomplete: boolean = false;
-	export let suggestions: string[] = [];
-
-	let focused = false;
+	let focused = $state(false);
 	let inputElement: HTMLInputElement;
 	let rootElement: HTMLDivElement;
 
 	/**
 	 * -1 means that the user has not selected any suggestion, and the current value of the text field should be used on submission
 	 */
-	let suggestionFocusIndex = -1;
-
-	type Events = {
-		enter: string,
-		change: string
-	}
-
-	const dispatch = createEventDispatcher<Events>();
+	let suggestionFocusIndex = $state(-1);
 
 	type HTMLEvent = KeyboardEvent & {
 		currentTarget: EventTarget & HTMLInputElement;
@@ -45,11 +40,14 @@
 	function submit() {
 		// If autocomplete is enabled, set the current value to suggestion, and submit that
 		if (autocomplete && suggestionFocusIndex !== -1 && suggestions[suggestionFocusIndex]) {
-			value = suggestions[suggestionFocusIndex];
+			value = suggestions[suggestionFocusIndex]!;
 			suggestionFocusIndex = -1;
 		}
 
-		dispatch("enter", value);
+		if (onEnter) {
+			onEnter(value);
+		}
+
 		blur();
 	}
 
@@ -83,30 +81,33 @@
 		submit();
 	}
 
-	function onChange() {
-		dispatch("change", value);
+	function onChangeHandler() {
+		// dispatch("change", value);
+		if (onChange) {
+			onChange(value);
+		}
 	}
 
 	function onClicked(event: MouseEvent) { 
-		if (!rootElement.contains(event.target as any)){
+		if (!rootElement.contains(event.target as Node | null)){
 			// Clicked outside the div
 			focused = false;
 		}
 	}
 
-	$: {
+	$effect(() => {
 		if (focused) {
 			window.addEventListener("mousedown", onClicked);
 		} else {
 			window.removeEventListener("mousedown", onClicked);
 		}
-	}
+	});
 
-	$: {
+	$effect(() => {
 		// Make sure that suggestionFocusIndex remains under the length of suggestions, while also accounting for the 0 based indexing (-1)
 		// This may occur when less suggestions are given, and the cursor is at higher index than the new length of suggestions
 		suggestionFocusIndex = Math.min(suggestionFocusIndex, suggestions.length - 1);
-	}
+	});
 </script>
 
 <div class="root" bind:this={rootElement}>
@@ -121,16 +122,16 @@
 		type="text"
 		placeholder={placeholder}
 		maxlength={maxLength}
-		on:focus={focus}
-		on:change={onChange}
-		on:keydown={onKeydown}
+		onfocus={focus}
+		onchange={onChangeHandler}
+		onkeydown={onKeydown}
 		bind:value={value}
 		bind:this={inputElement} />
 
 	{#if autocomplete}
 		<div class="suggestions{suggestions.length > 0 && focused ? " visible" : ""}">
 			{#each suggestions as suggestion, i}
-				<button class="suggestion{i === suggestionFocusIndex ? " focused" : ""}" on:click={() => acceptSuggestion(suggestion)}>{suggestion}</button>
+				<button class="suggestion{i === suggestionFocusIndex ? " focused" : ""}" onclick={() => acceptSuggestion(suggestion)}>{suggestion}</button>
 			{/each}
 		</div>
 	{/if}

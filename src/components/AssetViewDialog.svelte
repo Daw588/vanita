@@ -1,29 +1,27 @@
 <script lang="ts">
-	import { createEventDispatcher } from "svelte";
-	import type { Outfit } from "../lib/defs";
-	import type RBXApi from "../lib/rbxapi";
-	import { formatNumber } from "../lib/util";
+	import type { RBXApi } from "../modules/rbxapi";
+	import { formatNumber } from "../modules/util";
 	import Dialog from "./core/Dialog.svelte";
 	import SquareButton from "./core/SquareButton.svelte";
 	import ExpandableActionsButton from "./core/ExpandableActionsButton.svelte";
 	import CircularProgressBar from "./core/CircularProgressBar.svelte";
+	import type { Outfit } from "../modules/wardrobe/codec/v0";
 
-	export let open: boolean;
-	export let outfit: Outfit | undefined;
-	export let rbxapi: RBXApi;
-
-	type Events = {
-		close: void
+	type Props = {
+		open: boolean,
+		outfit?: Outfit,
+		rbxapi: RBXApi,
+		onClose: () => void
 	}
 
-	const dispatch = createEventDispatcher<Events>();
+	let { open, outfit, rbxapi, onClose }: Props = $props();
 
-	let currentCostInRobux = 0;
-	let numberOfOffSaleAssets = 0;
-	let loadingTotalCostInRobux = false;
-	let loadingAssets = false;
-	let wornAssets: Awaited<ReturnType<RBXApi["getCatalogAssetDetails"]>> = [];
-	let assetThumbnails: Awaited<ReturnType<RBXApi["getAssetThumbnail"]>> = [];
+	let currentCostInRobux = $state(0);
+	// let numberOfOffSaleAssets = 0;
+	let loadingTotalCostInRobux = $state(false);
+	let loadingAssets = $state(false);
+	let wornAssets = $state<Awaited<ReturnType<RBXApi["getCatalogAssetDetails"]>>>([]);
+	let assetThumbnails = $state<Awaited<ReturnType<RBXApi["getAssetThumbnail"]>>>([]);
 
 	async function doOpen() {
 		if (!outfit) {
@@ -34,11 +32,11 @@
 		loadingAssets = true;
 
 		// Calculate the value of the item
-		const assets = await rbxapi.getCatalogAssetDetails(outfit.character.assets.map(v => v.id));
+		const assets = await rbxapi.getCatalogAssetDetails(outfit.assets.map(v => v.id));
 		wornAssets = assets;
 
 		assetThumbnails = await rbxapi.getAssetThumbnail({
-			assetIds: outfit.character.assets.map(v => v.id),
+			assetIds: outfit.assets.map(v => v.id),
 			format: "Png",
 			isCircular: false,
 			returnPolicy: "PlaceHolder",
@@ -47,7 +45,7 @@
 
 		loadingAssets = false;
 		
-		// console.log(assets);
+		// console.debug(assets);
 
 		let totalPrice = 0;
 		let totalOfOffSaleAssets = 0;
@@ -68,7 +66,7 @@
 				if (bundles.success) {
 					if (bundles.value.length > 0) {
 						// This asset is a bundle
-						const bundle = bundles.value[0];
+						const bundle = bundles.value[0]!;
 						if (!bundle.product.isForSale) {
 							totalOfOffSaleAssets++;
 						}
@@ -86,13 +84,13 @@
 		}
 
 		currentCostInRobux = totalPrice;
-		numberOfOffSaleAssets = totalOfOffSaleAssets;
+		// numberOfOffSaleAssets = totalOfOffSaleAssets;
 
 		loadingTotalCostInRobux = false;
 	}
 
 	function doClose() {
-		dispatch("close");
+		onClose();
 	}
 
 	async function copyLinksToClipboard() {
@@ -101,16 +99,18 @@
 		);
 	}
 
-	$: if (open) {
-		doOpen();
-	}
+	$effect(() => {
+		if (open) {
+			doOpen();
+		}
+	});
 </script>
 
-<Dialog open={open} on:dismiss={doClose}>
+<Dialog open={open} onDismiss={doClose}>
 	<div class="surface">
 		<div class="header">
 			<div class="title">Assets</div>
-			<SquareButton icon="close" on:click={doClose} />
+			<SquareButton icon="close" onClick={doClose} />
 		</div>
 		<div class="assets">
 			{#if loadingAssets}

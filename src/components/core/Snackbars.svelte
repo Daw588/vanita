@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { instances, FADE_TIME } from "../../lib/snackbar";
+	import { instances, FADE_TIME } from "../../modules/snackbar";
 </script>
 
 <div class="root" style="--fade-time: {FADE_TIME}s">

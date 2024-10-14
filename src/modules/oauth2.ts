@@ -1,12 +1,14 @@
-import perstore from "./perstore";
-import * as googleOAuth2 from "./core/google-oauth2";
-import * as browser from "./core/browser";
-import to from "./core/to";
+import { oauth2 as oauth2Store } from "./perstore";
+import { requestConsent, refreshToken, revokeToken } from "../lib/google-oauth2";
+import { isChrome } from "../lib/browser";
+import { to } from "../lib/to";
 
+// TODO: Refactor this so it is no longer a class
+// biome-ignore lint/complexity/noStaticOnlyClass: Will be refactored at some point
 export class GoogleOAuth2 {
 	private static async getTokenForNonChromeBrowser({ interactive }: { interactive: boolean }) {
 		// Non Chrome browsers do not implement Google OAuth2, so we have to do it ourselves
-		const oauth2 = await perstore.oauth2.read();
+		const oauth2 = await oauth2Store.read();
 		if (!oauth2.success) {
 			return;
 		}
@@ -14,9 +16,9 @@ export class GoogleOAuth2 {
 		if (!oauth2.data.google) {
 			// Probably the first time, get the user signed in
 			if (interactive) {
-				const consentResult = await googleOAuth2.requestConsent();
+				const consentResult = await requestConsent();
 				if (consentResult) {
-					await perstore.oauth2.write({ ...oauth2.data, google: {
+					await oauth2Store.write({ ...oauth2.data, google: {
 						refreshToken: consentResult.refreshToken,
 						accessToken: consentResult.accessToken,
 						accessExpiry: Date.now() + consentResult.expiresIn
@@ -31,31 +33,32 @@ export class GoogleOAuth2 {
 		if (tokenExpired) {
 			// Token is expired, refresh the token!
 
-			const refreshResult = await googleOAuth2.refreshToken(oauth2.data.google.refreshToken);
+			const refreshResult = await refreshToken(oauth2.data.google.refreshToken);
 			if (refreshResult) {
 				// Update access token stuff
-				await perstore.oauth2.write({...oauth2.data, google: {
+				await oauth2Store.write({...oauth2.data, google: {
 					...oauth2.data.google,
 					accessToken: refreshResult.accessToken,
 					accessExpiry: Date.now() + refreshResult.expiresIn
 				}});
 
 				return refreshResult.accessToken;
-			} else {
-				// If we failed to refresh, try to prompt the user to auth again
-				// it might be that refresh token expired, or was revoked
-				if (interactive) {
-					const consentResult = await googleOAuth2.requestConsent();
-					if (consentResult) {
-						await perstore.oauth2.write({...oauth2.data, google: {
-							refreshToken: consentResult.refreshToken,
-							accessToken: consentResult.accessToken,
-							accessExpiry: Date.now() + consentResult.expiresIn
-						}});
-						return consentResult.accessToken;
-					}
+			}
+
+			// If we failed to refresh, try to prompt the user to auth again
+			// it might be that refresh token expired, or was revoked
+			if (interactive) {
+				const consentResult = await requestConsent();
+				if (consentResult) {
+					await oauth2Store.write({...oauth2.data, google: {
+						refreshToken: consentResult.refreshToken,
+						accessToken: consentResult.accessToken,
+						accessExpiry: Date.now() + consentResult.expiresIn
+					}});
+					return consentResult.accessToken;
 				}
 			}
+
 			return;
 		}
 
@@ -72,11 +75,10 @@ export class GoogleOAuth2 {
 	}
 
 	public static async getToken({ interactive }: { interactive: boolean }) {
-		if (await browser.isChrome()) {
+		if (await isChrome()) {
 			return GoogleOAuth2.getTokenForChromeBrowser({ interactive });
-		} else {
-			return GoogleOAuth2.getTokenForNonChromeBrowser({ interactive });
 		}
+		return GoogleOAuth2.getTokenForNonChromeBrowser({ interactive });
 	}
 
 	public static async revokeAccess() {
@@ -85,16 +87,16 @@ export class GoogleOAuth2 {
 			return false;
 		}
 
-		const revokeSuccess = await googleOAuth2.revokeToken(token);
+		const revokeSuccess = await revokeToken(token);
 		if (!revokeSuccess) {
 			return false;
 		}
 
-		if (await browser.isChrome()) {
+		if (await isChrome()) {
 			await chrome.identity.removeCachedAuthToken({ token });
 		}
 
-		const oauth2 = await perstore.oauth2.read();
+		const oauth2 = await oauth2Store.read();
 		if (!oauth2.success) {
 			return false;
 		}
@@ -102,11 +104,12 @@ export class GoogleOAuth2 {
 		// Delete Google OAuth2 data
 		const data = oauth2.data;
 		if (data.google) {
-			delete data.google;
+			// delete data.google;
+			data.google = undefined;
 		}
 
 		// Save changes
-		const success = await perstore.oauth2.write(data);
+		const success = await oauth2Store.write(data);
 		if (!success) {
 			return false;
 		}

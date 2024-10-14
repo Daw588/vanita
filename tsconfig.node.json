@@ -1,17 +1,52 @@
 {
 	"compilerOptions": {
 		"composite": true,
-		"skipLibCheck": true,
-		"module": "ESNext",
+
+		// Enable latest features
+		"lib": ["ESNext"],
 		"target": "ESNext",
+		"module": "ESNext",
+		"moduleDetection": "force",
+		"jsx": "react-jsx",
+
+		"allowJs": true,
+		"checkJs": true,
+		"skipLibCheck": true, // don't check node_modules for world's sake!
+
+		// Bundler mode
 		"moduleResolution": "bundler",
-		"lib": [
-			"ESNext"
-		],
-		"strict": true
+		"verbatimModuleSyntax": true,
+
+		"alwaysStrict": true,
+		"strict": true,
+		"strictFunctionTypes": true,
+		"strictNullChecks": true,
+		"strictPropertyInitialization": true,
+		"strictBuiltinIteratorReturn": true,
+		"strictBindCallApply": true,
+
+		"noUncheckedIndexedAccess": true,
+		"noUncheckedSideEffectImports": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"noImplicitAny": true,
+		"noImplicitReturns": true,
+		"noImplicitThis": true,
+		"noStrictGenericChecks": false,
+
+		// biomejs 'rules/complexity/useLiteralKeys' is disabled to prevent conflict with this setting
+		"noPropertyAccessFromIndexSignature": true,
+
+		// Sadly this property doesn't play nice with Svelte components
+		// so for now it will be disabled until Svelte fixes the issue somehow
+		"exactOptionalPropertyTypes": false,
+
+		"useUnknownInCatchVariables": true,
 	},
 	"include": [
-		"vite.config.ts",
 		"scripts"
+	],
+	"exclude": [
+		"node_modules"
 	]
 }

@@ -1,13 +1,13 @@
-import createInfoDialog from "../create-info-dialog";
-import { settings } from "../stores";
-import { GoogleOAuth2 } from "../oauth2";
+import { createInfoDialog } from "./create-info-dialog";
+import { settings } from "./stores";
+import { GoogleOAuth2 } from "./oauth2";
 
 const lackOfAuthorizationForCloudProvider = createInfoDialog<"authorize" | "disable">({
 	title: "There is a problem with the backup feature!",
 	description: "You have a backup feature enabled, but Google Drive is no longer allowing Vanita to access its cloud data. This is most likely because the consent you gave has expired, or has been manually revoked. In whichever case, you can authorize Vanita again to continue using the backup functionality, or you can choose to disable it.",
 	actions: [
-		{ label: "Authorize", kind: "normal", value: "authorize", icon: "signature" },
-		{ label: "Disable Backup", kind: "danger", value: "disable" },
+		{ label: "Authorize", kind: "positive", value: "authorize", icon: "signature" },
+		{ label: "Disable Backup", kind: "negative", value: "disable" },
 	],
 	dismissible: false
 });

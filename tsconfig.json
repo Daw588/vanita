@@ -1,20 +1,53 @@
 {
 	"extends": "@tsconfig/svelte/tsconfig.json",
 	"compilerOptions": {
-		"target": "ESNext",
-		"useDefineForClassFields": true,
+		"lib": [
+			"ESNext",
+			"DOM",
+			"DOM.Iterable"
+		],
 		"module": "ESNext",
+		"target": "ESNext",
+		"isolatedModules": true,
+		"useDefineForClassFields": true,
 		"resolveJsonModule": true,
+
 		/**
 		 * Typecheck JS in `.svelte` and `.js` files by default.
 		 * Disable checkJs if you'd like to use dynamic types in JS.
 		 * Note that setting allowJs false does not prevent the use
 		 * of JS in `.svelte` files.
 		*/
-		"strict": true,
 		"allowJs": true,
 		"checkJs": true,
-		"isolatedModules": true,
+		"skipLibCheck": true, // don't check node_modules for world's sake!
+
+		"alwaysStrict": true,
+		"strict": true,
+		"strictFunctionTypes": true,
+		"strictNullChecks": true,
+		"strictPropertyInitialization": true,
+		"strictBuiltinIteratorReturn": true,
+		"strictBindCallApply": true,
+
+		"noUncheckedIndexedAccess": true,
+		"noUncheckedSideEffectImports": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"noImplicitAny": true,
+		"noImplicitReturns": true,
+		"noImplicitThis": true,
+		"noStrictGenericChecks": false,
+
+		// biomejs 'rules/complexity/useLiteralKeys' is disabled to prevent conflict with this setting
+		"noPropertyAccessFromIndexSignature": true,
+
+		// Sadly this property doesn't play nice with Svelte components
+		// so for now it will be disabled until Svelte fixes the issue somehow
+		"exactOptionalPropertyTypes": false,
+
+		"useUnknownInCatchVariables": true,
+
 		"types": [
 			"@types/chrome"
 		]
@@ -24,6 +57,9 @@
 		"src/**/*.ts",
 		"src/**/*.js",
 		"src/**/*.svelte"
+	],
+	"exclude": [
+		"node_modules"
 	],
 	"references": [
 		{

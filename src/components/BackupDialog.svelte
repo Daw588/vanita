@@ -1,80 +1,95 @@
 <script lang="ts">
-	import { createEventDispatcher, onMount } from "svelte";
-
 	import Dialog from "./core/Dialog.svelte";
 	import PrimaryButton from "./core/PrimaryButton.svelte";
 
-	import { Snackbar } from "../lib/snackbar";
+	import { Snackbar } from "../modules/snackbar";
 	import CircularProgressBar from "./core/CircularProgressBar.svelte";
 	import ExpandableActionsButton from "./core/ExpandableActionsButton.svelte";
-	import { formatBytes } from "../lib/util";
+	import { formatBytes } from "../modules/util";
 	import SquareButton from "./core/SquareButton.svelte";
-	import createInfoDialog from "../lib/create-info-dialog";
-	import * as backup from "../lib/backup";
-	import { promptLackOfAuthForCloudProvider } from "../lib/interface/shared";
-	import { settings } from "../lib/stores";
-	import { GoogleOAuth2 } from "../lib/oauth2";
+	import { createInfoDialog } from "../modules/create-info-dialog";
+	
+	import {
+		createRestorePoint,
+		deleteAllRestorePoints,
+		deleteRestorePoint,
+		getRestorePoints,
+		isEnabled,
+		restoreFromRestorePoint,
+		type RestorePoint 
+	} from "../modules/backup";
+
+	import { promptLackOfAuthForCloudProvider } from "../modules/shared";
+	import { settings } from "../modules/stores";
+	import { GoogleOAuth2 } from "../modules/oauth2";
 	// import { EXTENSION_ID } from "../globals";
 
+	const detectedLocale = Intl.NumberFormat().resolvedOptions().locale;
+
+	const dateFmt = new Intl.DateTimeFormat(detectedLocale, {
+		dateStyle: "medium",
+		timeStyle: "short"
+	});
+
+	type CloudProvider = "google-drive"/* | "dropbox" | "one-drive"*/;
+	type Page = "connect-provider" | "configuration";
+
+	type Props = {
+		open: boolean,
+		onClose: () => void
+	}
+
+	let { open, onClose }: Props = $props();
+
+	let restorePoints = $state<(RestorePoint & { selected: boolean })[]>([]);
+	let loadingScreenEnabled = $state(false);
+	let cloudProvider = $state<CloudProvider>("google-drive");
+	let page = $state<Page>("connect-provider");
+	let loadingRestorePoints = $state(false);
+
 	const deleteRestorePointConfirmationPrompt = createInfoDialog({
-		title: "Deletion Confirmation",
-		description: "This restore point will be permanently deleted. This action is irreversible. Are you sure?",
+		title: "Delete restore point?",
+		description: "This action is irreversible.",
 		actions: [
-			{ label: "Yes, Delete This Restore Point", kind: "danger", value: true },
-			{ label: "Cancel", kind: "normal", value: false },
+			{ label: "Delete", kind: "negative", value: true },
+			{ label: "Cancel", kind: "neutral", value: false },
 		],
 		dismissible: true
 	});
 
 	const deleteAllRestorePointsConfirmationPrompt = createInfoDialog({
-		title: "Deletion Confirmation",
-		description: "All of your restore points will be permanently deleted. This action is irreversible. Are you sure?",
+		title: "Delete all of your restore points?",
+		description: "This action is irreversible.",
 		actions: [
-			{ label: "Yes, Delete All Restore Points", kind: "danger", value: true },
-			{ label: "Cancel", kind: "normal", value: false },
+			{ label: "Delete", kind: "negative", value: true },
+			{ label: "Cancel", kind: "neutral", value: false },
 		],
 		dismissible: true
 	});
 
 	const restoreConfirmationPrompt = createInfoDialog({
-		title: "Restore Confirmation",
-		description: "All of your current outfits will be replaced with the selected restore point. This action is irreversible. Are you sure?",
+		title: "Replace existing outfits with restore point?",
+		description: "All of your current outfits will be replaced with the selected restore point. This action is irreversible.",
 		actions: [
-			{ label: "Yes, Restore", kind: "danger", value: true },
-			{ label: "Cancel", kind: "normal", value: false },
+			{ label: "Restore", kind: "negative", value: true },
+			{ label: "Cancel", kind: "neutral", value: false },
 		],
 		dismissible: true
 	});
 
 	const disconnectProviderPrompt = createInfoDialog({
-		title: "Disconnection Confirmation",
-		description: "Vanita will disconnect from your cloud provider. If you wish to access your restore points again, you will need to connect it again. Your restore points will remain intact; no deletion will take place. Are you sure?",
+		title: "Disconnect?",
+		description: "Vanita will disconnect from your cloud provider. If you wish to access your restore points again, you will need to connect it again. Your restore points will remain intact; no deletion will take place.",
 		actions: [
-			{ label: "Yes, Disconnect", kind: "danger", value: true },
-			{ label: "Cancel", kind: "normal", value: false },
+			{ label: "Disconnect", kind: "negative", value: true },
+			{ label: "Cancel", kind: "neutral", value: false },
 		],
 		dismissible: true
 	});
 
-	export let open: boolean;
-
-	type Events = {
-		close: void
-	}
-
-	const dispatch = createEventDispatcher<Events>();
-
 	const googleDriveLogo = chrome.runtime.getURL("google-drive.png");
 	// const oneDriveLogo = chrome.runtime.getURL("one-drive.svg");
 	// const dropboxLogo = chrome.runtime.getURL("dropbox.svg");
-
-	type CloudProvider = "google-drive"/* | "dropbox" | "one-drive"*/;
-
-	let cloudProvider: CloudProvider = "google-drive";
-
-	type Page = "connect-provider" | "configuration";
-
-	let page: Page = "connect-provider";
 
 	async function connect() {
 		// Experimental support for Google OAuth2 in non Chrome browsers
@@ -95,11 +110,11 @@
 		// });
 
 		// if (authUrl) {
-		// 	console.log(authUrl);
+		// 	console.debug(authUrl);
 
 		// 	const url = new URL(authUrl);
 
-		// 	console.log(url.hash);
+		// 	console.debug(url.hash);
 
 		// 	const params = new URLSearchParams(url.hash.substring(1));
 		// 	const authToken = params.get("auth_token");
@@ -107,11 +122,11 @@
 		// 	const expiresIn = params.get("expires_in");
 		// 	const scope = params.get("scope");
 
-		// 	console.log("OAuth2 consent success", { authToken, tokenType, expiresIn, scope });
+		// 	console.debug("OAuth2 consent success", { authToken, tokenType, expiresIn, scope });
 		// }
 
 		// const auth = await chrome.identity.getAuthToken({ interactive: true });
-		// console.log(auth);
+		// console.debug(auth);
 
 		// if (browser.getBrowserType() === "opera") {
 
@@ -125,7 +140,7 @@
 	}
 
 	async function refreshRestorePoints() {
-		const recoveryPointsResult = await backup.getRestorePoints();
+		const recoveryPointsResult = await getRestorePoints();
 		if (!recoveryPointsResult.success) {
 			if (recoveryPointsResult.error === "user_unauthenticated") {
 				const actionTaken = await promptLackOfAuthForCloudProvider();
@@ -140,7 +155,7 @@
 		restorePoints = recoveryPointsResult.value.map(v => ({ ...v, selected: false }));
 	}
 
-	async function deleteRestorePoint(fileId: string) {
+	async function tryDeleteRestorePoint(fileId: string) {
 		const confirmed = await deleteRestorePointConfirmationPrompt.invoke();
 		if (!confirmed) {
 			return;
@@ -148,7 +163,7 @@
 
 		loadingScreenEnabled = true;
 
-		const result = await backup.deleteRestorePoint(fileId);
+		const result = await deleteRestorePoint(fileId);
 		if (result.success) {
 			Snackbar.show("Restore point has been deleted", 3);
 			await refreshRestorePoints();
@@ -157,8 +172,6 @@
 		loadingScreenEnabled = false;
 	}
 
-	let loadingRestorePoints = false;
-
 	// Whenever dialog gets opened
 	async function onOpen() {
 		const token = await GoogleOAuth2.getToken({ interactive: false });
@@ -166,7 +179,7 @@
 			// Connected
 			page = "configuration";
 
-			if (await backup.isEnabled()) {
+			if (await isEnabled()) {
 				loadingRestorePoints = true;
 				await refreshRestorePoints();
 				loadingRestorePoints = false;
@@ -177,17 +190,21 @@
 		}
 	}
 
-	$: if (open) onOpen();
+	$effect(() => {
+		if (open) {
+			onOpen();
+		}
+	});
 
 	function save() {
-		dispatch("close");
+		onClose();
 	}
 
 	/**
 	 * Deletes all restore points, and no confirmation is given.
 	 * Returns a boolean value which indicates whether the operation was successful or not.
 	 */
-	async function deleteAllRestorePoints() {
+	async function tryDeleteAllRestorePoints() {
 		const confirmed = await deleteAllRestorePointsConfirmationPrompt.invoke();
 		if (!confirmed) {
 			return;
@@ -195,7 +212,7 @@
 
 		loadingScreenEnabled = true;
 
-		const result = await backup.deleteAllRestorePoints();
+		const result = await deleteAllRestorePoints();
 		if (result.success) {
 			Snackbar.show("All restore points have been deleted", 3);
 			await refreshRestorePoints();
@@ -204,7 +221,7 @@
 		loadingScreenEnabled = false;
 	}
 
-	async function restoreFromRestorePoint(fileId: string) {
+	async function tryRestoreFromRestorePoint(fileId: string) {
 		const confirmed = await restoreConfirmationPrompt.invoke();
 		if (!confirmed) {
 			return;
@@ -212,7 +229,7 @@
 
 		loadingScreenEnabled = true;
 
-		const result = await backup.restoreFromRestorePoint(fileId);
+		const result = await restoreFromRestorePoint(fileId);
 		if (result.success) {
 			Snackbar.show("Restored from the selected restore point", 3);
 		}
@@ -220,10 +237,10 @@
 		loadingScreenEnabled = false;
 	}
 
-	async function createRestorePoint() {
+	async function tryCreateRestorePoint() {
 		loadingScreenEnabled = true;
 
-		const result = await backup.createRestorePoint({ automatic: false });
+		const result = await createRestorePoint({ automatic: false });
 		if (result.success) {
 			Snackbar.show("Restore point has been created", 3);
 			await refreshRestorePoints();
@@ -235,7 +252,7 @@
 	async function disconnectProvider() {
 		const confirmed = await disconnectProviderPrompt.invoke();
 		if (confirmed) {
-			console.log("Disconnecting...");
+			console.debug("Disconnecting...");
 			loadingScreenEnabled = true;
 
 			if (await GoogleOAuth2.revokeAccess()) {
@@ -245,20 +262,6 @@
 			loadingScreenEnabled = false;
 		}
 	}
-
-	let dateFmt: Intl.DateTimeFormat;
-	let restorePoints: (backup.RestorePoint & { selected: boolean })[] = [];
-
-	let loadingScreenEnabled = false;
-
-	onMount(async () => {
-		const detectedLocale = Intl.NumberFormat().resolvedOptions().locale;
-		
-		dateFmt = new Intl.DateTimeFormat(detectedLocale, {
-			dateStyle: "medium",
-			timeStyle: "short"
-		});
-	});
 </script>
 
 <Dialog open={loadingScreenEnabled}>
@@ -272,7 +275,7 @@
 		<div class="page{page === "connect-provider" ? " active" : ""}">
 			<div>What cloud service provider to use?</div>
 			<div class="providers">
-				<button class="provider{cloudProvider === "google-drive" ? " selected" : ""}" on:click={() => cloudProvider = "google-drive"}>
+				<button class="provider{cloudProvider === "google-drive" ? " selected" : ""}" onclick={() => cloudProvider = "google-drive"}>
 					<img class="logo" src={googleDriveLogo} alt="Google Drive logo" />
 				</button>
 				<!-- <button class="provider{cloudProvider === "one-drive" ? " selected" : ""}" on:click={() => cloudProvider = "one-drive"}>
@@ -282,7 +285,7 @@
 					<img class="logo" src={dropboxLogo} alt="Dropbox logo" />
 				</button> -->
 			</div>
-			<PrimaryButton label="Connect" on:click={connect} />
+			<PrimaryButton label="Connect" onClick={connect} />
 		</div>
 		<div class="page{page === "configuration" ? " active" : ""}">
 			<!-- <div>Backups to keep at any given time:</div>
@@ -297,7 +300,7 @@
 			</select> -->
 			<div class="top">
 				<div class="title">Restore Points</div>
-				<SquareButton icon="close" on:click={save} />
+				<SquareButton icon="close" onClick={save} />
 			</div>
 			<div class="restore-points">
 				{#if restorePoints.length === 0}
@@ -315,8 +318,8 @@
 							</div>
 							<!-- <PrimaryButton label="Restore" kind="danger" icon="settings_backup_restore" /> -->
 							<ExpandableActionsButton direction="down" bind:expanded={restorePoint.selected} actions={[
-								{ label: "Restore", icon: "settings_backup_restore", dangerous: true, onTriggered: () => restoreFromRestorePoint(restorePoint.fileId)},
-								{ label: "Delete", icon: "delete_forever", dangerous: true, onTriggered: () => deleteRestorePoint(restorePoint.fileId) },
+								{ label: "Restore", icon: "settings_backup_restore", dangerous: true, onTriggered: () => tryRestoreFromRestorePoint(restorePoint.fileId)},
+								{ label: "Delete", icon: "delete_forever", dangerous: true, onTriggered: () => tryDeleteRestorePoint(restorePoint.fileId) },
 							]} />
 						</div>
 					{/each}
@@ -324,10 +327,10 @@
 			</div>
 			<div class="row">
 				<!-- <PrimaryButton label="Change Cloud Provider" grow={true} on:click={() => page = "connect-provider"} /> -->
-				<PrimaryButton label="Create Restore Point" icon="backup" grow={true} on:click={createRestorePoint} />
+				<PrimaryButton label="Create Restore Point" icon="backup" grow={true} onClick={tryCreateRestorePoint} />
 				<ExpandableActionsButton direction="up" actions={[
 					{ label: "Disconnect", icon: "logout", dangerous: true, onTriggered: disconnectProvider },
-					{ label: "Delete All", icon: "delete_forever", dangerous: true, onTriggered: deleteAllRestorePoints },
+					{ label: "Delete All", icon: "delete_forever", dangerous: true, onTriggered: tryDeleteAllRestorePoints },
 				]} />
 			</div>
 			<div class="row">

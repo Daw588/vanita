@@ -5,8 +5,8 @@ type File = {
 	 * File name with the file extension. For example: `mycoolfile.txt`. Slashes `/` do not create folders, in fact, they're a valid part of the name.
 	 */
 	name: string,
-	mimeType: "application/json",
-	data: string,
+	mimeType: string,
+	data: string | ArrayBuffer,
 
 	/**
 	 * `User` context is the one that the user has access to, the "My Drive folder".
@@ -26,10 +26,10 @@ export async function upload(accessToken: string, file: File) {
 		uploadType: "resumable"
 	});
 
-	const intialResponse = await fetch("https://www.googleapis.com/upload/drive/v3/files?" + initialParams.toString(), {
+	const intialResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files?${initialParams.toString()}`, {
 		method: "POST",
 		headers: {
-			"Authorization": "Bearer " + accessToken,
+			"Authorization": `Bearer ${accessToken}`,
 			"Content-Type": "application/json; charset=UTF-8"
 		},
 		body: JSON.stringify({
@@ -39,7 +39,7 @@ export async function upload(accessToken: string, file: File) {
 		})
 	});
 
-	// console.log("initial response", intialResponse);
+	// console.debug("initial response", intialResponse);
 
 	if (!intialResponse.ok) {
 		return false;
@@ -53,13 +53,13 @@ export async function upload(accessToken: string, file: File) {
 	const uploadResponse = await fetch(location, {
 		method: "PUT",
 		headers: {
-			"Authorization": "Bearer " + accessToken,
-			"X-Upload-Content-Type": "application/json"
+			"Authorization": `Bearer ${accessToken}`,
+			"X-Upload-Content-Type": file.mimeType
 		},
 		body: file.data
 	});
 
-	// console.log("upload response", uploadResponse);
+	// console.debug("upload response", uploadResponse);
 
 	if (!uploadResponse.ok) {
 		return false;
@@ -86,10 +86,10 @@ export async function list(accessToken: string): Promise<Result<ListResponse, { 
 		pageSize: "10"
 	});
 
-	const response = await fetch("https://www.googleapis.com/drive/v3/files?" + params.toString(), {
+	const response = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, {
 		method: "GET",
 		headers: {
-			"Authorization": "Bearer " + accessToken,
+			"Authorization": `Bearer ${accessToken}`,
 			"Content-Type": "application/json; charset=UTF-8"
 		}
 	});
@@ -105,7 +105,7 @@ export async function deleteFile(accessToken: string, fileId: string) {
 	const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
 		method: "DELETE",
 		headers: {
-			"Authorization": "Bearer " + accessToken,
+			"Authorization": `Bearer ${accessToken}`,
 			"Content-Type": "application/json; charset=UTF-8"
 		}
 	});
@@ -117,25 +117,21 @@ export async function deleteFile(accessToken: string, fileId: string) {
 	return true;
 }
 
-export async function getData(accessToken: string, fileId: string): Promise<unknown> {
+export async function getData(accessToken: string, fileId: string): Promise<Response> {
 	const params = new URLSearchParams({
 		alt: "media"
 	});
 
-	const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?` + params.toString(), {
+	const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?${params.toString()}`, {
 		method: "GET",
 		headers: {
-			"Authorization": "Bearer " + accessToken,
+			"Authorization": `Bearer ${accessToken}`,
 			"Content-Type": "application/json; charset=UTF-8"
 		}
 	});
 
-	if (!response.ok) {
-		return;
-	}
-
-	// console.log("res", await response.json());
-	return await response.json();
+	// console.debug("res", await response.json());
+	return response;
 }
 
 // export async function getMetadata(accessToken: string, fileId: string) {

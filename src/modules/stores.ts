@@ -1,7 +1,7 @@
 import { writable } from "svelte/store";
-import type { Outfit } from "./defs";
-import { Settings } from "./defs";
-import { LocalStorage } from "./core/browser";
+import type { Outfit } from "../modules/defs";
+import { Settings } from "../modules/defs";
+import { LocalStorage } from "../lib/browser";
 
 type Page = "home" | "settings";
 
@@ -12,7 +12,7 @@ export const openDialogs = writable<number>(0);
 type Action = {
 	label: string,
 	icon?: string,
-	kind?: "normal" | "danger",
+	kind?: "neutral" | "positive" | "negative",
 	onClick: () => void
 }
 
@@ -41,14 +41,14 @@ export const settings = writable<Settings>(settingPersistantStore.defaultValue);
 (async () => { // service workers don't like top level awaits
 	const initialRead = await settingPersistantStore.read();
 	if (initialRead.success) {
-		// console.log("Resolved initial settings data", initialRead.data);
+		// console.debug("Resolved initial settings data", initialRead.data);
 		settings.set(initialRead.data);
 	
 		let initial = true;
 		settings.subscribe(newValue => {
 			if (!initial) {
 				settingPersistantStore.write(newValue);
-				// console.log("Saved settings into persistant storage!", newValue);
+				// console.debug("Saved settings into persistant storage!", newValue);
 			}
 			initial = false;
 		});

@@ -1,20 +1,13 @@
 <script lang="ts">
-	import { createEventDispatcher } from "svelte";
-
-	export let icon: string;
-
-	type Events = {
-		click: void
+	type Props = {
+		icon: string,
+		onClick?: () => void
 	}
 
-	const dispatch = createEventDispatcher<Events>();
-
-	function onClick() {
-		dispatch("click");
-	}
+	let { icon, onClick }: Props = $props();
 </script>
 
-<button class="root" on:click={onClick}>
+<button class="root" onclick={onClick}>
 	<div class="icon">
 		<span class="material-symbols-rounded">{icon}</span>
 	</div>
@@ -42,7 +35,7 @@
 			border-color 100ms ease
 			opacity 100ms ease;
 
-		cursor: pointer;
+		// cursor: pointer;
 
 		.icon {
 			display: flex;

@@ -1,9 +1,9 @@
-import { Outfits } from "./defs";
-import { outfits, settings } from "./stores";
-import * as GoogleDrive from "./core/google-drive";
-import perstore from "./perstore";
-import { Ok, Err, type Result } from "./core/result";
+import { settings } from "./stores";
+import { deleteFile, getData, list, upload } from "../lib/google-drive";
+import { backup } from "./perstore";
+import { Ok, Err, type Result } from "../lib/result";
 import { GoogleOAuth2 } from "./oauth2";
+import { readFromDiskRaw } from "./wardrobe/browser-storage";
 
 type Metadata = {
 	createdAt: number,
@@ -21,9 +21,10 @@ function decodeMetadata(str: string): Metadata {
 	//  ^ desc    ^ createdAt    ^ automatic  ^ size (bytes)
 
 	const metadata = str.replace(".json", "").split("-");
-	const createdAt = parseInt(metadata[1]);
-	const automatic = parseInt(metadata[2]) === 0 ? false : true;
-	const fileSize = parseInt(metadata[3]);
+	const createdAt = Number.parseInt(metadata[1]!);
+	// const automatic = Number.parseInt(metadata[2]!) === 0 ? false : true;
+	const automatic = Number.parseInt(metadata[2]!) !== 0;
+	const fileSize = Number.parseInt(metadata[3]!);
 
 	return {
 		createdAt,
@@ -42,7 +43,7 @@ export async function getRestorePoints(): Promise<Result<RestorePoint[], "user_u
 		return Err("user_unauthenticated");
 	}
 
-	const res = await GoogleDrive.list(token);
+	const res = await list(token);
 	if (!res.success) {
 		return Err("user_unauthenticated");
 	}
@@ -68,7 +69,7 @@ export async function deleteRestorePoint(fileId: string): Promise<Result<void, "
 		return Err("user_unauthenticated");
 	}
 
-	const success = await GoogleDrive.deleteFile(token, fileId);
+	const success = await deleteFile(token, fileId);
 	if (!success) {
 		return Err("google_drive_api_failure");
 	}
@@ -86,36 +87,83 @@ export async function deleteAllRestorePoints(): Promise<Result<void, "user_unaut
 		return Err("user_unauthenticated");
 	}
 
-	const res = await GoogleDrive.list(token);
+	const res = await list(token);
 	if (!res.success) {
 		return Err("google_drive_api_failure");
 	}
 
 	for (const file of res.value.files) {
 		if (file.name.startsWith("outfits-")) {
-			await GoogleDrive.deleteFile(token, file.id);
+			await deleteFile(token, file.id);
 		}
 	}
 
 	return Ok();
 }
 
-export async function restoreFromRestorePoint(fileId: string): Promise<Result<void, "user_unauthenticated" | "file_corrupted">> {
+type RestoreError = 
+	{
+		/**
+		 * Client is unauthenticated.
+		 */
+		kind: "UnauthenticatedClient"
+	}
+	| {
+		/**
+		 * The format described by `Content-Type` header is unsupported.
+		 */
+		kind: "UnsupportedFormat"
+	}
+	| {
+		/**
+		 * Can't identify the restore point file format because `Content-Type` header is missing.
+		 */
+		kind: "UnidentifiableFormat"
+	}
+	| {
+		/**
+		 * Google Drive API responded with an error.
+		 */
+		kind: "ResponseError",
+		message: string
+	}
+
+export async function restoreFromRestorePoint(fileId: string): Promise<Result<void, RestoreError>> {
 	const token = await GoogleOAuth2.getToken({ interactive: false });
 	if (!token) {
-		return Err("user_unauthenticated");
+		return Err({ kind: "UnauthenticatedClient" });
 	}
 
-	const data = await GoogleDrive.getData(token, fileId);
-
-	// Ensure the data passes structure validation before overwriting,
-	// we don't want to corrupt user's data if the file is corrupted or uses invalid format
-	const result = Outfits.safeParse(data);
-	if (!result.success) {
-		return Err("file_corrupted");
+	const response = await getData(token, fileId);
+	if (!response.ok) {
+		return Err({ kind: "ResponseError", message: response.statusText });
 	}
 
-	outfits.set(result.data);
+	const contentType = response.headers.get("Content-Type");
+	if (!contentType) {
+		return Err({ kind: "UnidentifiableFormat" });
+	}
+
+	if (contentType === "application/json") {
+		// Legacy format support
+		console.warn("JSON format is no longer supported");
+	} else if (contentType === "application/vanita") {
+		console.debug("Vanita format detected");
+	} else {
+		return Err({ kind: "UnsupportedFormat" });
+	}
+
+	console.debug({ response, contentType, fileId });
+
+	// // Ensure the data passes structure validation before overwriting,
+	// // we don't want to corrupt user's data if the file is corrupted or uses invalid format
+	// const result = Outfits.safeParse(data);
+	// if (!result.success) {
+	// 	return Err("file_corrupted");
+	// }
+
+	// outfits.set(result.data);
+
 	return Ok();
 }
 
@@ -125,32 +173,34 @@ export async function createRestorePoint({ automatic }: { automatic: boolean }):
 		return Err("user_unauthenticated");
 	}
 
-	const result = await perstore.outfits.read();
-	if (!result.success) {
-		return Err("could_not_read_outfits");
-	}
+	// const result = await perstore.outfits.read();
+	// if (!result.success) {
+	// 	return Err("could_not_read_outfits");
+	// }
+
+	const wardrobeRaw = await readFromDiskRaw();
+	const fileSize = wardrobeRaw.byteLength;
 
 	// Don't make empty backups/restore points, because it doesn't make sense,
 	// and additionally, it could overwrite existing backups that are meaningful with nothing
 	// which would result in a loss of data
-	if (result.data.length === 0) {
+	if (fileSize === 0) {
 		return Err("no_outfits_found");
 	}
 
-	const data = JSON.stringify(result.data);
+	// const data = JSON.stringify(result.data);
+	// const utf8Encode = new TextEncoder();
+	// const binaryData = utf8Encode.encode(data);
 
-	const utf8Encode = new TextEncoder();
-	const binaryData = utf8Encode.encode(data);
-
-	const success = await GoogleDrive.upload(token, {
+	const success = await upload(token, {
 		context: "app",
 		name: encodeMetadata({
 			createdAt: Date.now(),
 			automatic,
-			fileSize: binaryData.byteLength,
+			fileSize,
 		}),
-		mimeType: "application/json",
-		data
+		mimeType: "application/vanita",
+		data: wardrobeRaw
 	});
 
 	if (!success) {
@@ -161,7 +211,7 @@ export async function createRestorePoint({ automatic }: { automatic: boolean }):
 }
 
 export async function timeSinceLastAutomaticBackup() {
-	const result = await perstore.backup.read();
+	const result = await backup.read();
 	return result.success ? result.data.timeSinceLastBackup : Date.now();
 }
 

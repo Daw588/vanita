@@ -1,36 +1,36 @@
 <script lang="ts">
-	import { createEventDispatcher } from "svelte";
-
 	type Action = {
 		label: string,
 		icon: string,
 		onActivated?: () => void
 	}
 
-	export let icon: string | null = null;
-	export let label: string;
-	export let kind: "normal" | "danger" = "normal";
-	export let grow: boolean = false;
+	type Props = {
+		icon?: string,
+		label: string,
+		kind?: "positive" | "negative" | "neutral",
+		grow?: boolean,
 
-	// Split button stuff
-	export let actions: Action[] = [];
-	export let expanded = false;
+		onClick?: () => void,
+
+		// Split button stuff
+		actions?: Action[],
+		expanded?: boolean
+	}
+
+	let { icon, label, kind = "positive", grow = false, actions = [], expanded = false, onClick }: Props = $props();
 
 	let containerDiv: HTMLDivElement;
 
-	type Events = {
-		click: void
-	}
-
-	const dispatch = createEventDispatcher<Events>();
-
-	function onClick() {
+	function onInternalClick() {
 		expanded = false;
-		dispatch("click");
+		if (onClick) {
+			onClick();
+		}
 	}
 
 	function onClicked(event: MouseEvent) { 
-		if (!containerDiv.contains(event.target as any)){
+		if (!containerDiv.contains(event.target as Node | null)){
 			// Clicked outside the div
 			expanded = false;
 		}
@@ -41,17 +41,17 @@
 		action.onActivated?.();
 	}
 
-	$: {
+	$effect(() => {
 		if (expanded) {
 			window.addEventListener("mousedown", onClicked);
 		} else {
 			window.removeEventListener("mousedown", onClicked);
 		}
-	}
+	});
 </script>
 
 <div bind:this={containerDiv} class="root" data-kind={kind} data-grow={grow} data-expanded={expanded}>
-	<button class="primary" on:click={onClick}>
+	<button class="primary" onclick={onInternalClick}>
 		{#if icon}
 			<div class="icon">
 				<span class="material-symbols-rounded">{icon}</span>
@@ -62,13 +62,13 @@
 
 	<!-- Split button stuff -->
 	{#if actions.length > 0}
-		<button class="secondary" on:click={() => expanded = !expanded}>
+		<button class="secondary" onclick={() => expanded = !expanded}>
 			<span class="icon material-symbols-rounded">arrow_drop_down</span>
 		</button>
 
 		<div class="tray">
 			{#each actions as action}
-				<button class="action" on:click={() => onActionActivated(action)}>
+				<button class="action" onclick={() => onActionActivated(action)}>
 					<div class="icon">
 						<span class="material-symbols-rounded">{action.icon}</span>
 					</div>
@@ -80,6 +80,16 @@
 </div>
 
 <style lang="scss">
+	@use "sass:color";
+	// @import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
+
+	// :root, * {
+	// 	font-family: "Inter", sans-serif;
+	// 	box-sizing: border-box;
+	// 	line-height: 1;
+	// 	font-weight: 400;
+	// }
+
 	.root {
 		position: relative;
 		display: flex;
@@ -90,14 +100,19 @@
 		font-weight: 600;
 		border-radius: 4px;
 
-		&[data-kind=normal] {
+		&[data-kind=positive] {
 			--bg-color: #2866df;
-			--bg-color-hovered: #215ac8;
+			// --bg-color-hovered: #215ac8;
 		}
 
-		&[data-kind=danger] {
+		&[data-kind=negative] {
 			--bg-color: #c72636;
-			--bg-color-hovered: #a82633;
+			// --bg-color-hovered: #a82633;
+		}
+
+		&[data-kind=neutral] {
+			--bg-color: #3a3a3a;
+			// --bg-color-hovered: #313131;
 		}
 
 		&[data-grow=true] {
@@ -136,7 +151,7 @@
 
 				padding: 6px; // 8px
 				border-radius: 4px;
-				cursor: pointer;
+				// cursor: pointer;
 
 				&:hover {
 					background-color: rgba(255, 255, 255, 0.1);
@@ -192,10 +207,12 @@
 		
 		background-color: var(--bg-color);
 		min-height: calc(28px - 4px * 2);
-		cursor: pointer;
+		border: 1px solid transparent;
+		// cursor: pointer;
 
 		&:hover {
-			background-color: var(--bg-color-hovered);
+			// background-color: var(--bg-color-hovered);
+			border-color: color-mix(in srgb, var(--bg-color), white 20%);
 			// box-shadow: 0 1px 4px rgba(58, 58, 58, 0.5), 0 0 6px rgba(0, 0, 0, 0.5);
 		}
 	}

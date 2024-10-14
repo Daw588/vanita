@@ -4,7 +4,7 @@
 
 ### What are the main features?
 
-- Save beyond the 50 outfit limit.
+- Save beyond the 150 outfit limit (used be 50).
 - Import, and export your outfits.
 - Organize your outfits with tags.
 - Search through your outfits either by name, or by the tags.
@@ -24,25 +24,9 @@ You can get the extension either directly from the latest [GitHub release](https
 
 ### How can I support the development?
 
-You can subscribe to one of my monthly supporter tiers that can be found on my [Discord server](https://discord.gg/wR2wykwUeD).
+You can subscribe to one of my monthly supporter tiers that can be found on my [Discord server](https://discord.gg/wR2wykwUeD). If you would like to do one-time donation or subscribe through a different service like Patreon, please let me know!
 
 ![Marquee Promo Tile](/brand/discord-server-shop-monthly-tiers.png)
-
-If you prefer to support via Robux donation:
-
-|   Tier   | Price (Robux) | Game Pass Link                                      |
-|:--------:|:-------------:|-----------------------------------------------------|
-|  Quartz  |      100      | https://www.roblox.com/game-pass/739336488/Quartz   |
-| Fluorite |      500      | https://www.roblox.com/game-pass/738222443/Fluorite |
-|   Topaz  |     1,000     | https://www.roblox.com/game-pass/739287534/Topaz    |
-|  Garnet  |     5,000     | https://www.roblox.com/game-pass/738228494/Garnet   |
-| Sapphire |     10,000    | https://www.roblox.com/game-pass/738752478/Sapphire |
-|   Ruby   |     50,000    | https://www.roblox.com/game-pass/739016504/Ruby     |
-|  Emerald |    100,000    | https://www.roblox.com/game-pass/738455580/Emerald  |
-|   Jade   |    500,000    | https://www.roblox.com/game-pass/738756514/Jade     |
-|  Diamond |   1,000,000   | https://www.roblox.com/game-pass/739295440/Diamond  |
-
-Note: Robux donation option is less preferable due to 30% marketplace fee, and the developer exchange rate, but if it is the only way you can, or want to donate, then it's fine. You can also share the extension with others, as by doing so, you bring more attention to the project, which will help me enable more people to access powerful features related to creation of outfits on Roblox.
 
 ### Why AGPL-3.0 over MIT license?
 
@@ -57,6 +41,7 @@ The MIT license doesn't prevent a company from just forking the project, and mak
 Code is licensed under AGPL-3.0 (see [LICENSE](./LICENSE) file), however, Vanita™ branding, and other related assets are copyrighted.
 
 ### Commercial Use
+
 Definition: Any use of a product or work that is directly or indirectly associated with generating profit or furthering a business entity. This includes non-profit organizations, as their activities support a specific cause or service.
 
 - All instances of Vanita™ branding must be replaced, or removed.
@@ -64,6 +49,7 @@ Definition: Any use of a product or work that is directly or indirectly associat
 - Original GitHub repository must be linked when using any parts of the code, such when using separate modules in your project, or forking the project.
 
 ### Personal Use
+
 Definition: Use of a product or work that's solely for your own enjoyment or non-commercial purposes. It involves no financial gain or the promotion of any business.
 
 - Codebase must be published under the same license (according to AGPL-3.0).

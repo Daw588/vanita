@@ -1,44 +1,55 @@
 <script lang="ts">
-	import { createEventDispatcher, tick } from "svelte";
+	import { tick } from "svelte";
 
-	import * as defs from "../lib/defs";
-	import * as util from "../lib/util";
+	import { type Option, overwrite, timeAgo } from "../modules/util";
 
 	import TextField from "./core/TextField.svelte";
 	import SquareButton from "./core/SquareButton.svelte";
 	import ExpandableActionsButton from "./core/ExpandableActionsButton.svelte";
 	import PrimaryButton from "./core/PrimaryButton.svelte";
-	import { Snackbar } from "../lib/snackbar";
-	import RBXApi from "../lib/rbxapi";
+	import { Snackbar } from "../modules/snackbar";
+	import type { RBXApi } from "../modules/rbxapi";
 	import Dialog from "./core/InfoDialog.svelte";
 	import AssetViewDialog from "./AssetViewDialog.svelte";
+	import { addTagToOutfit, overwriteOutfit, saveAsRobloxOutfit, type LoadedOutfit, type QueryTag } from "../modules/wardrobe/outfits";
 
-	export let open: boolean = false;
-	export let outfit: defs.Outfit | undefined;
-	export let rbxapi: RBXApi;
-	export let userId: number;
-	export let allTags: string[];
+	type Props = {
+		open: boolean,
+		outfit: LoadedOutfit | null,
+		rbxapi: Option<RBXApi>,
+		userId: Option<number>,
+		allTags: QueryTag[],
+		onClose: () => void,
+		onDeleteOutfit: (outfit: LoadedOutfit) => void,
+		onDuplicateOutfit: (outfit: LoadedOutfit) => void
+	}
 
-	let isEditingName: boolean = false;
-	let nameLabel: HTMLInputElement;
-	let tagName: string = "";
+	let { open, outfit, rbxapi, userId, allTags, onClose, onDeleteOutfit, onDuplicateOutfit }: Props = $props();
+
+	let isEditingName = $state(false);
+	let nameLabel = $state<HTMLInputElement>();
+	let tagName = $state("");
 
 	// This is the outfit that is currently being edited
 	// This can be later set to outfit = editedOutfit to commit changes
-	let editedOutfit: defs.Outfit | undefined;
+	let editedOutfit = $state<Option<LoadedOutfit>>(null);
 
-	let now = Date.now();
+	let now = $state(Date.now());
 
-	let deleteOutfitDialogVisible = false;
-	let closeWithoutSavingChangesDialogVisible = false;
+	let deleteOutfitDialogVisible = $state(false);
+	let closeWithoutSavingChangesDialogVisible = $state(false);
 
-	type Events = {
-		close: void,
-		deleteOutfit: defs.Outfit,
-		duplicateOutfit: defs.Outfit
-	}
+	let assetViewDialog = $state({
+		open: false
+	});
 
-	const dispatch = createEventDispatcher<Events>();
+	// type Events = {
+	// 	close: void,
+	// 	deleteOutfit: Outfit,
+	// 	duplicateOutfit: Outfit
+	// }
+
+	// const dispatch = createEventDispatcher<Events>();
 
 	function backdropClicked() {
 		if (hasMadeChanges()) {
@@ -57,7 +68,7 @@
 	function close() {
 		isEditingName = false;
 		loadOutfit(); // Clear out unsaved data by loading the latest state of currently loaded outfit
-		dispatch("close");
+		onClose();
 	}
 
 	function hasMadeChanges() {
@@ -73,8 +84,8 @@
 			// Wait for DOM to be updated before we focus (we don't want to focus when the label is still disabled)
 			await tick();
 
-			nameLabel.focus(); // Force the user to focus on the input so that they can begin typing right away
-			nameLabel.setSelectionRange(-1, -1); // Put caret (blinking vertical line) at the end of the text
+			nameLabel!.focus(); // Force the user to focus on the input so that they can begin typing right away
+			nameLabel!.setSelectionRange(-1, -1); // Put caret (blinking vertical line) at the end of the text
 		}
 	}
 
@@ -84,18 +95,26 @@
 		}
 	}
 
-	function addTag() {
+	function tryAddTag() {
 		if (!editedOutfit) {
 			return;
 		}
 
-		if (editedOutfit.tags.indexOf(tagName) === -1) {
-			editedOutfit.tags.push(tagName);
+		const result = addTagToOutfit(editedOutfit, allTags, tagName);
+		if (result.success) {
 			tagName = "";
-			editedOutfit = editedOutfit; // Trigger UI refresh
 		} else {
-			// Tag already exists!
-			// TODO: Perhaps an error message?
+			if (result.error.kind === "LimitExceeded") {
+				Snackbar.show("You cannot associate more than 255 tags with the outfit", 4);
+			} else if (result.error.kind === "AlreadyExists") {
+				Snackbar.show("The tag is already associated with the outfit", 4);
+			} else if (result.error.kind === "RegistryError") {
+				if (result.error.error.kind === "LimitExceeded") {
+					Snackbar.show("Reached limit of 255 tags", 4);
+				} else if (result.error.error.kind === "TooLong") {
+					Snackbar.show("The tag name exceeds the 255 character limit", 4);
+				}
+			}
 		}
 	}
 
@@ -103,92 +122,85 @@
 		if (!editedOutfit) {
 			return;
 		}
-
 		editedOutfit.tags.splice(index, 1);
-		editedOutfit = editedOutfit; // Trigger UI refresh
 	}
 
 	async function loadOutfit() {
 		if (outfit) {
-			editedOutfit = structuredClone(outfit); // Clone to avoid sharing reference
+			editedOutfit = structuredClone($state.snapshot(outfit)); // Clone to avoid sharing reference
 			now = Date.now(); // Date to use for "now" when dealing with "modified" and "created" timestamps
 		}
 	}
 
-	async function overwriteOutfit() {
-		if (!editedOutfit) {
+	async function onOverwriteOutfit() {
+		if (!editedOutfit || userId === null || rbxapi === null) {
 			return;
 		}
-
-		const avatarData = await rbxapi.getCurrentAvatar();
-		const avatarUrl = await rbxapi.getAvatarThumbnail(userId);
-
-		editedOutfit.character = {
-			bodyColors: avatarData.bodyColors,
-			assets: avatarData.assets.map(v => {
-				return {
-					id: v.id,
-					meta: v.meta
-				};
-			}),
-			avatarType: avatarData.playerAvatarType,
-			scales: avatarData.scales
-		};
-
-		editedOutfit.thumbnailUrl = avatarUrl;
-
-		editedOutfit = editedOutfit; // Trigger UI refresh
+		await overwriteOutfit(rbxapi, editedOutfit, userId);
 	}
 
-	async function saveAsRobloxOutfit() {
-		if (!editedOutfit) {
+	async function onSaveAsRobloxOutfit() {
+		if (!editedOutfit || rbxapi === null) {
 			return;
 		}
 
-		await rbxapi.createOutfit({
-			assets: editedOutfit.character.assets,
-			bodyColors: editedOutfit.character.bodyColors,
-			name: editedOutfit.name,
-			outfitType: "Avatar",
-			playerAvatarType: editedOutfit.character.avatarType,
-			scale: editedOutfit.character.scales
-		});
-
-		Snackbar.show("Successfuly created a Roblox outfit", 3);
+		const success = await saveAsRobloxOutfit(rbxapi, editedOutfit);
+		if (success) {
+			Snackbar.show("Successfuly created a Roblox outfit", 3);
+		} else {
+			Snackbar.show("Failed to created a Roblox outfit", 3);
+		}
 	}
 
 	function deleteOutfit() {
 		if (outfit) {
-			dispatch("deleteOutfit", outfit);
+			onDeleteOutfit(outfit);
 			close();
 		}
 	}
 
 	function duplicateOutfit() {
 		if (outfit) {
-			dispatch("duplicateOutfit", outfit);
+			onDuplicateOutfit(outfit);
 			close();
 		}
 	}
 
 	function save() {
 		if (outfit && editedOutfit) {
-			util.overwrite(outfit, editedOutfit);
+			overwrite(outfit, $state.snapshot(editedOutfit));
 			outfit.modified = Date.now(); // Update the time when the outfit was last modified
 		}
 	}
 
-	let assetViewDialog = {
-		open: false
-	};
+	$effect(() => {
+		if (outfit) { // When outfit is set/changed, update the variables
+			loadOutfit();
+		}
+	});
 
-	$: if (outfit) { // When outfit is set/changed, update the variables
-		loadOutfit();
-	}
+	// $inspect(editedOutfit);
+
+	// $effect(() => {
+	// 	console.debug("tags changed", allTags);
+	// });
+
+	// List of tags that are associated with the outfit
+	let listOfTags = $derived.by(() => {
+		if (!editedOutfit) {
+			return [];
+		}
+
+		return editedOutfit.tags
+			.map((tagId, index) => ({ ...allTags[tagId]!, index }))
+			.toSorted((a, b) => a.label.localeCompare(b.label));
+	});
 </script>
 
 <div class="root" data-open={open}>
-	<AssetViewDialog open={assetViewDialog.open} outfit={editedOutfit} rbxapi={rbxapi} on:close={() => assetViewDialog.open = false} />
+	{#if editedOutfit && rbxapi}
+		<AssetViewDialog open={assetViewDialog.open} outfit={editedOutfit} rbxapi={rbxapi} onClose={() => assetViewDialog.open = false} />
+	{/if}
 
 	<Dialog
 		title="Deletion Confirmation"
@@ -197,7 +209,7 @@
 		actions={[
 			{
 				label: "Yes, Delete This Outfit",
-				kind: "danger",
+				kind: "negative",
 				onClick: () => {
 					deleteOutfitDialogVisible = false;
 					deleteOutfit();
@@ -205,7 +217,7 @@
 			},
 			{
 				label: "Cancel",
-				kind: "normal",
+				kind: "neutral",
 				onClick: () => {
 					deleteOutfitDialogVisible = false;
 				}
@@ -219,7 +231,7 @@
 		actions={[
 			{
 				label: "Yes, Discard My Changes",
-				kind: "danger",
+				kind: "negative",
 				onClick: () => {
 					closeWithoutSavingChangesDialogVisible = false;
 					close();
@@ -227,21 +239,21 @@
 			},
 			{
 				label: "Cancel",
-				kind: "normal",
+				kind: "neutral",
 				onClick: () => {
 					closeWithoutSavingChangesDialogVisible = false;
 				}
 			},
 		]} />
 
-	<button class="backdrop" on:click={backdropClicked}></button>
+	<button class="backdrop" onclick={backdropClicked} aria-label="Modal backdrop"></button>
 
 	{#if editedOutfit}
 		<div class="tray">
 			<div class="left">
 				<img class="main" src={editedOutfit.thumbnailUrl} alt="avatar" />
 				<div class="actions">
-					<PrimaryButton label="Save" icon="save" on:click={saveButtonClicked} grow={true} />
+					<PrimaryButton label="Save" icon="save" onClick={saveButtonClicked} grow={true} />
 					<ExpandableActionsButton direction="up" actions={[
 						{
 							label: "View Assets",
@@ -253,23 +265,24 @@
 							label: "Save as Roblox outfit",
 							icon: "save_as",
 							dangerous: false,
-							onTriggered: saveAsRobloxOutfit
+							onTriggered: onSaveAsRobloxOutfit
 						},
 						{
 							label: "Export",
 							icon: "output",
 							dangerous: false,
 							onTriggered: () => {
-								if (editedOutfit) {
-									util.exportOutfits([editedOutfit]);
-								}
+								// TODO: Implement
+								// if (editedOutfit) {
+								// 	util.exportOutfits([editedOutfit]);
+								// }
 							},
 						},
 						{
 							label: "Overwrite",
 							icon: "draw",
 							dangerous: false,
-							onTriggered: overwriteOutfit,
+							onTriggered: onOverwriteOutfit,
 						},
 						{
 							label: "Duplicate",
@@ -295,23 +308,23 @@
 						maxlength={25}
 						bind:this={nameLabel}
 						bind:value={editedOutfit.name}
-						on:keydown={onNameLabelKeyPress}
+						onkeydown={onNameLabelKeyPress}
 						data-is-editing={isEditingName} />
-					<SquareButton icon={isEditingName ? "done" : "edit"} on:click={onEditOutfitNameButtonClicked} />
+					<SquareButton icon={isEditingName ? "done" : "edit"} onClick={onEditOutfitNameButtonClicked} />
 				</div>
 				<div class="side">
 					<div class="properties">
 						<div class="property">
 							<div class="key">Created:</div>
-							<div class="value">{util.timeAgo(editedOutfit.created, now)}</div>
+							<div class="value">{timeAgo(editedOutfit.created, now)}</div>
 						</div>
 						<div class="property">
 							<div class="key">Modified:</div>
-							<div class="value">{editedOutfit.modified === 0 ? "never" : util.timeAgo(editedOutfit.modified, now)}</div>
+							<div class="value">{editedOutfit.modified === 0 ? "never" : timeAgo(editedOutfit.modified, now)}</div>
 						</div>
 						<div class="property">
 							<div class="key">Last Used:</div>
-							<div class="value">{editedOutfit.lastUsed === 0 ? "never" : util.timeAgo(editedOutfit.lastUsed, now)}</div>
+							<div class="value">{editedOutfit.lastUsed === 0 ? "never" : timeAgo(editedOutfit.lastUsed, now)}</div>
 						</div>
 						<div class="property">
 							<div class="key">Used:</div>
@@ -330,20 +343,21 @@
 					</div> -->
 					<div class="section tags">
 						<div class="header">Tags</div>
+						<!-- allTags.filter(tag => !editedOutfit?.tags.includes(allTags.indexOf(tag)) && tag.toLocaleLowerCase().includes(tagName.toLocaleLowerCase())).splice(0, 4) -->
 						<TextField
 							icon="sell"
 							placeholder="Add a tag..."
 							maxLength={25}
 							autocomplete={true}
-							suggestions={allTags.filter(tag => !editedOutfit?.tags.includes(tag) && tag.toLocaleLowerCase().includes(tagName.toLocaleLowerCase())).splice(0, 4)}
-							on:enter={addTag}
+							suggestions={[]}
+							onEnter={tryAddTag}
 							bind:value={tagName} />
 						<div class="list">
 							<!-- We wrap tags in objects with their original index, because their index will change after we sort them alphabetically -->
-							{#each editedOutfit.tags.map((v, i) => ({ id: i, label: v })).toSorted((a, b) => a.label.localeCompare(b.label)) as tag}
+							{#each listOfTags as tag}
 								<div class="tag">
 									<div class="content">{tag.label}</div>
-									<button class="remove" on:click={() => removeTag(tag.id)}>
+									<button class="remove" onclick={() => removeTag(tag.index)}>
 										<div class="icon">
 											<span class="material-symbols-rounded">close</span>
 										</div>
@@ -371,9 +385,9 @@
 		z-index: 5;
 		
 		transition:
-				opacity 100ms ease,
-				visibility 100ms ease,
-				backdrop-filter 100ms ease;
+			opacity 100ms ease,
+			visibility 100ms ease,
+			backdrop-filter 100ms ease;
 
 		&[data-open=true] {
 			visibility: visible;
@@ -530,13 +544,14 @@
 					display: flex;
 					flex-direction: row;
 					flex-wrap: wrap;
-					gap: 5px;
+					gap: 4px;
 
 					.tag {
 						display: flex;
 						flex-direction: row;
-						gap: 5px;
-						padding: 5px 8px;
+						gap: 4px;
+						padding: 4px 8px;
+						user-select: none;
 
 						background-color: #242424;
 						border-radius: 4px;
@@ -550,6 +565,11 @@
 							font-size: 14px;
 						}
 
+						&:has(.remove:hover) .content {
+							color: #ee474a;
+							text-decoration: line-through;
+						}
+
 						.remove {
 							all: unset;
 
@@ -558,7 +578,15 @@
 							align-items: center;
 							justify-content: center;
 
-							cursor: pointer;
+							// cursor: pointer;
+							padding: 1px;
+							// border: 1px solid #eee;
+							border-radius: 100%;
+
+							&:hover {
+								color: #ee474a;
+								background-color: rgba(199, 38, 54, 0.1);
+							}
 
 							.icon {
 								display: flex;

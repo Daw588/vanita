@@ -1,5 +1,13 @@
-import zod from "zod";
-import to from "./to";
+import {
+	type SafeParseReturnType,
+	type infer as zinfer,
+	type ZodTypeAny,
+	any as zany,
+	string as zstring,
+	object as zobject
+} from "zod";
+
+import { to } from "./to";
 import { Ok, Err, type Result } from "./result";
 // import { DEV } from "../../globals";
 
@@ -31,7 +39,7 @@ export async function executeOnTab
 	// Grab the return value from the injected function which was executed on the main page
 	// Since it was executed on the main page, it will always be the first frame
 	// Therefore, we can somewhat safely get the result by [0] and the return value by .result
-	return frames[0].result as ReturnType<T>;
+	return frames[0]!.result as ReturnType<T>;
 }
 
 export async function getCurrentTab(): Promise<Optional<chrome.tabs.Tab>> {
@@ -42,16 +50,51 @@ export async function getCurrentTab(): Promise<Optional<chrome.tabs.Tab>> {
 
 export async function getCurrentTabId(): Promise<Optional<number>> {
 	const activeTabs = await chrome.tabs.query({ active: true });
-	return activeTabs[0].id;
+	return activeTabs[0]!.id;
 }
 
-export async function fetchImageBase64(url: string): Promise<string> {
+// biome-ignore lint/suspicious/noConfusingVoidType: i know what i am doing
+export async function fetchImageBase64(url: string): Promise<string | void> {
+	const currentTabId = await getCurrentTabId();
+	if (!currentTabId) {
+		throw "Cannot fetch image and convert it to base64 without an active tab being present";
+	}
+
+	// biome-ignore lint/suspicious/noConfusingVoidType: i know what i am doing
+	return await executeOnTab(currentTabId, async (urlToFetch: string): Promise<string | void> => {
+		return await (new Promise((resolve) => {
+			const img = new Image();
+			img.setAttribute("crossorigin", "anonymous"); // Get rid of tainted canvas error
+
+			img.onload = () => {
+				const canvas = document.createElement("canvas");
+				canvas.width = img.width;
+				canvas.height = img.height;
+
+				const ctx = canvas.getContext("2d");
+				ctx?.drawImage(img, 0, 0);
+
+				const base64 = canvas.toDataURL("image/webp", 0.9);
+				resolve(base64);
+			}
+
+			img.onerror = () => {
+				// Failed to load
+				resolve();
+			}
+
+			img.src = urlToFetch;
+		}));
+	}, url);
+}
+
+export async function fetchImageBlob(url: string): Promise<Blob> {
 	const currentTabId = await getCurrentTabId();
 	if (!currentTabId) {
 		throw Error("Cannot fetch image and convert it to base64 without an active tab being present");
 	}
 
-	return await executeOnTab(currentTabId, async (urlToFetch: string): Promise<string> => {
+	return await executeOnTab(currentTabId, async (urlToFetch: string): Promise<Blob> => {
 		return await (new Promise((resolve) => {
 			const img = new Image();
 			img.setAttribute("crossorigin", "anonymous"); // Get rid of tainted canvas error
@@ -63,8 +106,11 @@ export async function fetchImageBase64(url: string): Promise<string> {
 				const ctx = canvas.getContext("2d");
 				ctx?.drawImage(img, 0, 0);
 
-				const base64 = canvas.toDataURL("image/png");;
-				resolve(base64);
+				canvas.toBlob((blob) => {
+					if (blob) {
+						resolve(blob);
+					}
+				}, "image/avif", 0.8);
 			}
 			img.src = urlToFetch;
 		}));
@@ -105,7 +151,7 @@ export async function fetchOnTab
 			credentials: data.credentials
 		});
 
-		let body;
+		let body: unknown; // see 'FetchResponseBodyType<ResponseEncoding>'
 
 		switch (data.responseEncoding) {
 			case "text":
@@ -135,18 +181,18 @@ export async function fetchOnTab
 	}, requestData);
 }
 
-export async function promptFilePicker(info: { accept?: "application/JSON" }): Promise<FileList> {
+export async function promptFilePicker(info: { accept?: string[] }): Promise<FileList> {
 	return new Promise((resolve, reject) => {
 		const input = document.createElement("input");
 		input.type = "file";
-		input.accept = info.accept ?? "";
+		input.accept = info.accept ? info.accept.join(",") : "";
+		console.debug({info, inputAccept: input.accept });
 		input.onchange = async () => {
 			const files = input.files;
 			if (files) {
 				return resolve(files);
-			} else {
-				return reject("No files were retrieved");
 			}
+			return reject("No files were retrieved");
 		};
 		input.click();
 	});
@@ -188,7 +234,58 @@ export async function reloadActiveTab(): Promise<void> {
 	});
 }
 
+export async function promptToSaveFile(filename: string, data: Blob): Promise<void> {
+	// biome-ignore lint/suspicious/noAsyncPromiseExecutor: Might refactor this at some point I suppose
+	return new Promise(async (resolve, reject) => {
+		const url = URL.createObjectURL(data);
+
+		const hasPermission = await chrome.permissions.contains({
+			permissions: ["downloads"]
+		});
+
+		if (!hasPermission) {
+			const wasGranted = await chrome.permissions.request({
+				permissions: ["downloads"]
+			});
+
+			if (!wasGranted) {
+				reject("Downloads permission required");
+				// TODO: Create a popup for this
+				return;
+			}
+		}
+
+		const downloadId = await chrome.downloads.download({
+			url: url,
+			filename,
+			conflictAction: "prompt",
+			saveAs: true
+		});
+
+		// console.debug("Download id", downloadId);
+
+		const downloadItems = await chrome.downloads.search({ id: downloadId });
+		const downloadItem = downloadItems[0];
+		// console.debug(downloadItems, downloadItem);
+		if (downloadItem) {
+			const currentState = downloadItem.state;
+			// console.debug(currentState);
+			if (currentState === "complete") {
+				resolve();
+			} else if (currentState === "interrupted") {
+				reject("Interrupted");
+			}
+		} else {
+			reject("Download doesn't exist");
+		}
+	});
+}
+
+/**
+ * @deprecated Use `promptToSaveFile` instead
+ */
 export async function saveJsonFile(filename: string, data: string): Promise<void> {
+	// biome-ignore lint/suspicious/noAsyncPromiseExecutor: Might refactor this at some point I suppose
 	return new Promise(async (resolve, reject) => {
 		const blob = new Blob([data], {
 			type: "application/json"
@@ -214,19 +311,19 @@ export async function saveJsonFile(filename: string, data: string): Promise<void
 
 		const downloadId = await chrome.downloads.download({
 			url: url,
-			filename: filename + ".json",
+			filename: `${filename}.json`,
 			conflictAction: "prompt",
 			saveAs: true
 		});
 
-		// console.log("Download id", downloadId);
+		// console.debug("Download id", downloadId);
 
 		const downloadItems = await chrome.downloads.search({ id: downloadId });
 		const downloadItem = downloadItems[0];
-		// console.log(downloadItems, downloadItem);
+		// console.debug(downloadItems, downloadItem);
 		if (downloadItem) {
 			const currentState = downloadItem.state;
-			// console.log(currentState);
+			// console.debug(currentState);
 			if (currentState === "complete") {
 				resolve();
 			} else if (currentState === "interrupted") {
@@ -254,12 +351,12 @@ export async function getAuthToken({ interactive }: { interactive: boolean }): P
 	return Ok(auth.token);
 }
 
-export class LocalStorage<T extends zod.ZodTypeAny> {
+export class LocalStorage<T extends ZodTypeAny> {
 	name: string;
 	validator: T;
-	defaultValue: zod.infer<T>;
+	defaultValue: zinfer<T>;
 
-	constructor(name: string, validator: T, defaultValue: zod.infer<T>) {
+	constructor(name: string, validator: T, defaultValue: zinfer<T>) {
 		this.name = name;
 		this.validator = validator;
 		this.defaultValue = defaultValue;
@@ -279,10 +376,11 @@ export class LocalStorage<T extends zod.ZodTypeAny> {
 		}
 
 		const result = this.validator.safeParse(value);
-		return result as zod.SafeParseReturnType<any, zod.infer<T>>;
+		// biome-ignore lint/suspicious/noExplicitAny: i know what i am doing
+		return result as SafeParseReturnType<any, zinfer<T>>;
 	}
 
-	async write(value: zod.infer<T>) {
+	async write(value: zinfer<T>) {
 		const result = this.validator.safeParse(value);
 		if (result.success) {
 			await chrome.storage.local.set({ [this.name]: result.data });
@@ -292,13 +390,14 @@ export class LocalStorage<T extends zod.ZodTypeAny> {
 	}
 }
 
-type ServiceWorkerEvent<Request, Response> = {
+export type ServiceWorkerEvent<Request, Response> = {
 	request: Request,
 	response: Response
 }
 
+// Here you can register events for service worker communication
 export type CustomEvents = {
-	CreateAutomaticBackup: ServiceWorkerEvent<undefined, "user_unauthenticated" | undefined>
+	CreateAutomaticBackup: ServiceWorkerEvent<undefined, Result<void, "user_unauthenticated" | "other">>
 }
 
 export async function sendToServiceWorker<
@@ -338,9 +437,9 @@ type Callback = (sender: chrome.runtime.MessageSender, event: DiscriminatedCusto
 
 // Basic runtime validation
 // It should be okay, since we don't accept foreign requests
-const Event = zod.object({
-	name: zod.string(),
-	data: zod.any().optional()
+const Event = zobject({
+	name: zstring(),
+	data: zany().optional()
 }).strict();
 
 export function listenForServiceWorkerEvents(callback: Callback) {
@@ -350,22 +449,39 @@ export function listenForServiceWorkerEvents(callback: Callback) {
 			const { name, data } = parseResult.data;
 
 			callback(sender, {
+				// biome-ignore lint/suspicious/noExplicitAny: i know what i am doing
 				name: name as any,
 				data,
 				reply: sendResponse
 			});
-		} else {
-			console.log(parseResult.success, parseResult.error);
+
+			// Must return 'true' or otherwise the response will always be 'undefined'
+			// see https://stackoverflow.com/a/34629025/10435318
+			return true;
 		}
+
+		console.warn(parseResult.success, parseResult.error);
+		return false;
 	});
 }
 
 export async function isChrome() {
 	try {
 		await chrome.identity.getAuthToken({ interactive: false });
+
+		// It's chrome!
 		return true;
 	} catch (msg) {
-		// Error: Function unsupported.
+		// the easier way is using the lose equality check msg == "Error: OAuth2 not granted or revoked."
+		// or doing typeof(msg) === "object" && msg && Object.hasOwn(msg, "toString") && msg.toString() === "Error: OAuth2 not granted or revoked."
+		// because msg is an empty object with toString() method
+		// biome-ignore lint/suspicious/noDoubleEquals: i know what i am doing
+		if (msg == "Error: OAuth2 not granted or revoked.") {
+			// It's chrome!
+			return true;
+		}
+
+		// "Error: Function unsupported." or some other error may appear
 		return false;
 	}
 }
@@ -406,6 +522,6 @@ export async function isChrome() {
 
 // export function print(...args: any[]) {
 // 	if (DEV) {
-// 		console.log(...args);
+// 		console.debug(...args);
 // 	}
 // }

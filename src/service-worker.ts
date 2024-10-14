@@ -1,73 +1,85 @@
-import { EXTENSION_ID } from "./globals";
-import { listenForServiceWorkerEvents } from "./lib/core/browser";
+import { EXTENSION_ID } from "./modules/globals";
+import { listenForServiceWorkerEvents } from "./lib/browser";
 
-import * as backup from "./lib/backup";
-import * as time from "./lib/core/time";
-import perstore from "./lib/perstore";
+import { daysBetween } from "./lib/time";
+import { backup as backupStore } from "./modules/perstore";
+import { Err, Ok, type Result } from "./lib/result";
 
-async function deleteAutomaticRestorePointsAfterIndex(restorePoints: backup.RestorePoint[], index: number) {
+import {
+	isEnabled,
+	timeSinceLastAutomaticBackup,
+	getRestorePoints,
+	deleteRestorePoint,
+	createRestorePoint,
+	type RestorePoint
+} from "./modules/backup";
+
+async function deleteAutomaticRestorePointsAfterIndex(restorePoints: RestorePoint[], index: number) {
 	const automaticRestorePoints = restorePoints.filter(v => v.automatic === true);
-	console.log("automatic restore points", automaticRestorePoints);
+	console.debug("automatic restore points", automaticRestorePoints);
 
 	if (automaticRestorePoints.length > index - 1) {
 		// Start i element, and continue until the end
 		for (let i = index - 1; i < automaticRestorePoints.length; i++) {
-			console.log("deleting old restore point", i, automaticRestorePoints[i].fileId);
-			await backup.deleteRestorePoint(automaticRestorePoints[i].fileId);
+			console.debug("deleting old restore point", i, automaticRestorePoints[i]!.fileId);
+			await deleteRestorePoint(automaticRestorePoints[i]!.fileId);
 		}
 	}
 }
 
-async function createAutomaticBackup() {
-	const backupEnabled = await backup.isEnabled();
-	const timeSinceLastAutomaticBackup = await backup.timeSinceLastAutomaticBackup();
-	const daysSinceLastAutomaticBackup = time.daysBetween(timeSinceLastAutomaticBackup, Date.now());
+async function createAutomaticBackup(): Promise<Result<void, "user_unauthenticated" | "other">> {
+	const backupEnabled = await isEnabled();
+	const timeSinceLastAutoBackup = await timeSinceLastAutomaticBackup();
+	const daysSinceLastAutomaticBackup = daysBetween(timeSinceLastAutoBackup, Date.now());
 
 	if (backupEnabled) {
-		console.log("Backup enabled");
+		console.debug("Backup enabled");
 
-		const restorePoints = await backup.getRestorePoints();
+		const restorePoints = await getRestorePoints();
 		if (!restorePoints.success) {
-			console.log("Failed to get restore points");
+			console.warn("Failed to get restore points", restorePoints.error);
 			if (restorePoints.error === "user_unauthenticated") {
-				return "user_unauthenticated";
+				return Err("user_unauthenticated");
 			}
-			return;
+			return Err("other");
 		}
 
 		// Delete 4th, and other restore points that follow
 		// await deleteAutomaticRestorePointsAfterIndex(restorePoints.value, 4);
 
-		console.log("Days since last automatic backup", daysSinceLastAutomaticBackup);
+		console.debug("Days since last automatic backup", daysSinceLastAutomaticBackup);
 
 		if (daysSinceLastAutomaticBackup >= 1) {
 			// Delete 3rd, and other restore points that follow
 			await deleteAutomaticRestorePointsAfterIndex(restorePoints.value, 3);
 
-			console.log("Started creating automatic restore point");
+			console.debug("Started creating automatic restore point");
 
 			// Create automatic backup
-			await backup.createRestorePoint({ automatic: true });
+			await createRestorePoint({ automatic: true });
 
-			console.log("Stopped creating automatic restore point");
+			console.debug("Stopped creating automatic restore point");
 
-			await perstore.backup.write({ timeSinceLastBackup: Date.now() });
+			await backupStore.write({ timeSinceLastBackup: Date.now() });
 
-			console.log("Automatic backup successfuly created");
+			console.debug("Automatic backup successfuly created");
 		}
 	}
+
+	return Ok();
 }
 
 listenForServiceWorkerEvents(async (sender, event) => {
-	console.log("Received an event", sender, event);
+	console.debug("Received an event", sender, event);
 
 	// Only accept requests from the extension itself; no foreign requests!
 	if (sender.id !== EXTENSION_ID) {
+		console.warn("foreign request blocked");
 		return;
 	}
 
 	if (event.name === "CreateAutomaticBackup") {
-		console.log("Received automatic backup request");
+		console.debug("Received automatic backup request");
 		return event.reply(await createAutomaticBackup());
 	}
 });

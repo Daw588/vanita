@@ -8,9 +8,13 @@
 		onTriggered?: () => void
 	}
 
-	export let expanded = false;
-	export let actions: Action[] = [];
-	export let direction: "up" | "down";
+	type Props = {
+		expanded?: boolean,
+		actions?: Action[],
+		direction: "up" | "down"
+	}
+
+	let { expanded = $bindable(false), actions = [], direction = "up" }: Props = $props();
 
 	let root: HTMLDivElement;
 
@@ -24,25 +28,25 @@
 	}
 
 	function onClicked(event: MouseEvent) { 
-		if (!root.contains(event.target as any)){
+		if (!root.contains(event.target as Node | null)){
 			// Clicked outside the div
 			expanded = false;
 		}
 	}
 
-	$: {
+	$effect(() => {
 		if (expanded) {
 			window.addEventListener("mousedown", onClicked);
 		} else {
 			window.removeEventListener("mousedown", onClicked);
 		}
-	}
+	});
 </script>
 
 <div class="root" bind:this={root}>
 	<div class="actions" data-expanded={expanded} data-direction={direction}>
 		{#each actions as action}
-			<button class="action" on:click={() => actionClicked(action)} data-dangerous={action.dangerous}>
+			<button class="action" onclick={() => actionClicked(action)} data-dangerous={action.dangerous}>
 				<div class="icon">
 					<span class="material-symbols-rounded">{action.icon}</span>
 				</div>
@@ -51,7 +55,7 @@
 		{/each}
 	</div>
 	<div class="button">
-		<SquareButton icon={expanded ? "close" : "more_vert"} on:click={toggle} />
+		<SquareButton icon={expanded ? "close" : "more_vert"} onClick={toggle} />
 	</div>
 </div>
 
@@ -66,7 +70,7 @@
 
 			display: flex;
 			flex-direction: column;
-			gap: 3px;
+			// gap: 3px;
 			padding: 3px;
 			z-index: 6;
 
@@ -112,14 +116,20 @@
 
 				padding: 6px; // 8px
 				border-radius: 4px;
-				cursor: pointer;
+				// cursor: pointer;
+
+				--hover-bg-color: rgba(255, 255, 255, 0.1);
+				--text-color: #fff;
+
+				color: var(--text-color);
 
 				&:hover {
-					background-color: rgba(255, 255, 255, 0.1);
+					background-color: var(--hover-bg-color);
 				}
 
 				&[data-dangerous=true] {
-					color: #ee474a;
+					--hover-bg-color: rgba(199, 38, 54, 0.1);
+					--text-color: #ee474a;
 				}
 
 				.icon {

@@ -1,38 +1,39 @@
 <script lang="ts">
 	import { onMount } from "svelte";
-	import { currentPage, settings } from "../lib/stores";
+	import { currentPage, settings } from "../modules/stores";
 	import BackupDialog from "./BackupDialog.svelte";
 	import SquareButton from "./core/SquareButton.svelte";
 	import Switch from "./core/Switch.svelte";
 
-	let backupSetupDialogOpen = false;
-
-	let localSettings = $settings;
+	let backupSetupDialogOpen = $state(false);
+	let localSettings = $state($settings);
 
 	// Two-way data sync
 	// Very hacky solution, but that's Svelte 4
 	// TODO: Rework this when Svelte 5 is stable
-	$: {
+	$effect(() => {
 		settings.set(localSettings);
-	}
+	});
 
 	onMount(() => {
-		settings.subscribe(v => localSettings = v);
+		settings.subscribe(v => {
+			localSettings = v;
+		});
 	});
 </script>
 
 <!-- If something disables the backup option, we make sure that the dialog closes itself when that happens -->
-<BackupDialog open={backupSetupDialogOpen && $settings.backupEnabled} on:close={() => backupSetupDialogOpen = false} />
+<BackupDialog open={backupSetupDialogOpen && $settings.backupEnabled} onClose={() => backupSetupDialogOpen = false} />
 
 <div class="root">
 	{#if $settings}
 		<div class="header">
 			<div class="title">Settings</div>
-			<SquareButton icon="close" on:click={() => currentPage.set("home")} />
+			<SquareButton icon="close" onClick={() => currentPage.set("home")} />
 		</div>
 		
 		<div class="setting">
-			<button class="name" on:click={() => backupSetupDialogOpen = true} disabled={!localSettings.backupEnabled}>Backup</button>
+			<button class="name" onclick={() => backupSetupDialogOpen = true} disabled={!localSettings.backupEnabled}>Backup</button>
 			<div class="right">
 				<div class="divider"></div>
 				<Switch bind:checked={localSettings.backupEnabled} />

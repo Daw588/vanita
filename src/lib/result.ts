@@ -5,6 +5,8 @@ export type Result<Ok, Err> =
 
 export function Ok(): { success: true }
 export function Ok<T>(value: NonNullable<T>): { success: true, value: T }
+
+/*@__INLINE__*/
 export function Ok<T>(value?: NonNullable<T>): { success: true, value?: T } {
 	return {
 		success: true,
@@ -12,6 +14,7 @@ export function Ok<T>(value?: NonNullable<T>): { success: true, value?: T } {
 	};
 }
 
+/*@__INLINE__*/
 export function Err<T>(error: T): { success: false, error: T } {
 	return {
 		success: false,

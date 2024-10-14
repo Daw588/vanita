@@ -1,31 +1,28 @@
 <script lang="ts">
-	import { createEventDispatcher } from "svelte";
 	import Dialog from "./Dialog.svelte";
 	import PrimaryButton from "./PrimaryButton.svelte";
-
-	type Events = {
-		dismiss: void
-	}
-
-	const dispatch = createEventDispatcher<Events>();
 
 	type Action = {
 		label: string,
 		icon?: string,
-		kind?: "normal" | "danger",
+		kind?: "positive" | "negative" | "neutral",
 		onClick: () => void
 	}
 
-	export let actions: Action[] = [];
-	export let title: string;
-	export let description: string;
-	export let allowHTML: boolean = false;
+	type Props = {
+		actions?: Action[],
+		title: string,
+		description: string,
+		allowHTML?: boolean,
+		visible: boolean,
+		zIndex?: number,
+		onDismiss?: () => void
+	}
 
-	export let visible: boolean; // TODO: Rename to `open`
-	export let zIndex: number | undefined = undefined;
+	let { actions = [], title, description, allowHTML = false, visible, zIndex, onDismiss }: Props = $props();
 </script>
 
-<Dialog open={visible} zIndex={zIndex} on:dismiss={() => dispatch("dismiss")}>
+<Dialog open={visible} zIndex={zIndex} onDismiss={onDismiss}>
 	<div class="window">
 		<div class="header">{title}</div>
 		
@@ -41,7 +38,7 @@
 					label={action.label}
 					icon={action.icon}
 					kind={action.kind}
-					on:click={action.onClick} />
+					onClick={action.onClick} />
 			{/each}
 		</div>
 	</div>

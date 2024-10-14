@@ -1,0 +1,12 @@
+{
+	"files.eol": "\n",
+	"files.insertFinalNewline": true,
+	"files.trimFinalNewlines": true,
+	"editor.inlayHints.padding": true,
+
+	"[svelte][typescript]": {
+		"editor.rulers": [
+			120
+		]
+	}
+}

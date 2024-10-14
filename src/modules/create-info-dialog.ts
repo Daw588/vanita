@@ -6,15 +6,16 @@ type Structure<T> = {
 	actions: {
 		label: string,
 		icon?: string,
-		kind: "normal" | "danger",
+		kind: "neutral" | "positive" | "negative",
 		value: T
 	}[],
 	dismissible: boolean
 }
 
-export default function<T>(inst: Structure<T>) {
+export function createInfoDialog<T>(inst: Structure<T>) {
 	return {
 		invoke: () => {
+			// biome-ignore lint/suspicious/noConfusingVoidType: just because I suppose
 			return new Promise<T | void>(resolve => {
 				gInfoDialog.set({
 					title: inst.title,

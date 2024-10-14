@@ -8,7 +8,7 @@
 	"short_name": "Vanita",
 	"name": "Vanita - Outfit Manager for Roblox",
 	"description": "Save, and wear Roblox outfits with nice-to-have features like importing, exporting, and tagging.",
-	"version": "3.5.0",
+	"version": "4.0.0",
 	
 	"permissions": [
 		"activeTab",

@@ -12,6 +12,8 @@ const SAFE_ZONE_DELAY = 1;
 
 export const instances = writable<Instance[]>([]);
 
+// TODO: Refactor this so that it is no longer a class
+// biome-ignore lint/complexity/noStaticOnlyClass: Will be refactored at some point I suppose
 export class Snackbar {
 	public static show(message: string, lifespan: number) {
 		// Add snackbar instance to queue

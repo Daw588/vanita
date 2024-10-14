@@ -1,38 +1,45 @@
 <script lang="ts">
-	export let label: string;
+	import type { Snippet } from "svelte";
+
+	type Props = {
+		label: string,
+		children: Snippet
+	}
+
+	let { label, children }: Props = $props();
 
 	let root: HTMLDivElement;
-	let expanded = false;
+	let expanded = $state<boolean>(false);
 
 	function toggle() {
 		expanded = !expanded;
 	}
 
 	function onClicked(event: MouseEvent) { 
-		if (!root.contains(event.target as any)){
+		if (!root.contains(event.target as Node | null)){
 			// Clicked outside the div
 			expanded = false;
 		}
 	}
 
-	$: {
+	$effect(() => {
 		if (expanded) {
 			window.addEventListener("mousedown", onClicked);
 		} else {
 			window.removeEventListener("mousedown", onClicked);
 		}
-	}
+	});
 </script>
 
 <div class="root" bind:this={root}>
-	<button class="button" on:click={toggle}>
+	<button class="button" onclick={toggle}>
 		<div class="label">{label}</div>
 		<div class="icon">
 			<span class="material-symbols-rounded">{expanded ? "arrow_drop_up" : "arrow_drop_down"}</span>
 		</div>
 	</button>
 	<div class="tray" data-expanded={expanded}>
-		<slot></slot>
+		{@render children()}
 	</div>
 </div>
 
@@ -52,7 +59,7 @@
 			border-radius: 4px;
 			height: 27px;
 
-			cursor: pointer;
+			// cursor: pointer;
 
 			&:hover {
 				background-color: rgba(255, 255, 255, 0.05);

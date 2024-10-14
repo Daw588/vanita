@@ -1,14 +1,15 @@
+import { fetchOnTab, getCurrentTabId } from "../lib/browser";
+import { Err, Ok, type Result } from "../lib/result";
 
-import * as browser from "./core/browser";
-import { Err, Ok, type Result } from "./core/result";
+type RbxVec3 = { X: number, Y: number, Z: number }
 
 export type BodyColors = {
-	headColorId: number,
-	torsoColorId: number,
-	rightArmColorId: number,
-	leftArmColorId: number,
-	rightLegColorId: number,
-	leftLegColorId: number
+	headColor3: string,
+	torsoColor3: string,
+	rightArmColor3: string,
+	leftArmColor3: string,
+	rightLegColor3: string,
+	leftLegColor3: string
 }
 
 export type Scale = {
@@ -22,19 +23,24 @@ export type Scale = {
 
 export type PlayarAvatarType = "R6" | "R15"
 
+export type AvatarAccessoryAssetMetadata = {
+	order?: number,
+	puffiness?: number,
+	version?: number,
+	position?: RbxVec3,
+	rotation?: RbxVec3,
+	scale?: RbxVec3
+}
+
 export type AvatarAccessoryAsset = {
 	id: number,
-	meta?: {
-		order: number,
-		puffiness?: number,
-		version: number
-	}
+	meta?: AvatarAccessoryAssetMetadata
 }
 
 type GetCurrentAvatarResponseBody = {
 	scales: Scale,
 	playerAvatarType: PlayarAvatarType,
-	bodyColors: BodyColors,
+	bodyColor3s: BodyColors,
 	assets: {
 		id: number,
 		name: string,
@@ -43,11 +49,7 @@ type GetCurrentAvatarResponseBody = {
 			name: string
 		},
 		currentVersionId: number,
-		meta?: {
-			order: number,
-			version: number,
-			puffiness?: number
-		}
+		meta?: AvatarAccessoryAssetMetadata
 	}[],
 	defaultShirtApplied: boolean,
 	defaultPantsApplied: boolean,
@@ -58,23 +60,14 @@ type GetCurrentAvatarResponseBody = {
 	}[]
 }
 
-type Asset = {
-	id: number,
-	meta?: {
-		order: number,
-		puffiness?: number,
-		version: number
-	}
-}
-
-type CreateOutfitRequestBody = {
-	name: string,
-	bodyColors: BodyColors,
-	assets: Asset[],
-	scale: Scale,
-	playerAvatarType: PlayarAvatarType,
-	outfitType: number
-}
+// type CreateOutfitRequestBody = {
+// 	name: string,
+// 	bodyColors: BodyColors,
+// 	assets: AvatarAccessoryAsset[],
+// 	scale: Scale,
+// 	playerAvatarType: PlayarAvatarType,
+// 	outfitType: number
+// }
 
 type SetWearingAssetsRequestBody = {
 	assets: AvatarAccessoryAsset[]
@@ -109,14 +102,14 @@ type SetBodyColorsRequestBody = BodyColors;
 // 	const response = await fetch("https://avatar.roblox.com/v2/outfits/create", {
 // 		body: JSON.stringify(body)
 // 	});
-// 	// console.log("create-outfit", response);
+// 	// console.debug("create-outfit", response);
 // }
 
 // https://avatar.roblox.com/v2/outfits/create
 type V2OutfitsCreateRequestBody = {
 	name: string,
-	bodyColors: BodyColors,
-	assets: Asset[],
+	bodyColor3s: BodyColors,
+	assets: AvatarAccessoryAsset[],
 	scale: Scale,
 	playerAvatarType: PlayarAvatarType,
 	outfitType: "Avatar"
@@ -169,7 +162,7 @@ type GetBundleFromAssetResponse = {
 	}[]
 }
 
-export default class RBXApi {
+export class RBXApi {
 	private csrfToken: string;
 
 	private constructor(csrfToken: string) {
@@ -182,12 +175,19 @@ export default class RBXApi {
 	}
 
 	private static async getCsrfToken() {
-		const currentTabId = await browser.getCurrentTabId();
+		const data = await chrome.storage.session.get("csrfToken");
+		const cachedToken = data["csrfToken"];
+
+		if (cachedToken && Date.now() - cachedToken.createdAt <= 300000) { // 5 minutes
+			return cachedToken.secret;
+		}
+
+		const currentTabId = await getCurrentTabId();
 		if (!currentTabId) {
 			throw "Cannot make a request without an active tab being present";
 		}
 
-		const response = await browser.fetchOnTab(currentTabId, {
+		const response = await fetchOnTab(currentTabId, {
 			url: "https://avatar.roblox.com/v1/avatar/set-player-avatar-type",
 			method: "POST",
 			credentials: "include",
@@ -196,20 +196,26 @@ export default class RBXApi {
 		
 		const token = response.headers["x-csrf-token"];
 		if (token) {
+			chrome.storage.session.set({
+				csrfToken: {
+					secret: token,
+					createdAt: Date.now()
+				}
+			});
 			return token;
-		} else {
-			throw "Failed";
 		}
+
+		throw "Failed";
 	}
 
 	public async setBodyColors(body: SetBodyColorsRequestBody) {
-		const currentTabId = await browser.getCurrentTabId();
+		const currentTabId = await getCurrentTabId();
 		if (!currentTabId) {
 			throw "Cannot make a request without an active tab being present";
 		}
 
-		const response = await browser.fetchOnTab(currentTabId, {
-			url: "https://avatar.roblox.com/v1/avatar/set-body-colors",
+		const response = await fetchOnTab(currentTabId, {
+			url: "https://avatar.roblox.com/v2/avatar/set-body-colors",
 			method: "POST",
 			headers: { "x-csrf-token": this.csrfToken },
 			body: JSON.stringify(body),
@@ -221,7 +227,7 @@ export default class RBXApi {
 	}
 
 	public async setPlayerAvatarType(avatarType: PlayarAvatarType) {
-		const currentTabId = await browser.getCurrentTabId();
+		const currentTabId = await getCurrentTabId();
 		if (!currentTabId) {
 			throw "Cannot make a request without an active tab being present";
 		}
@@ -230,7 +236,7 @@ export default class RBXApi {
 			playerAvatarType: avatarType
 		}
 
-		const response = await browser.fetchOnTab(currentTabId, {
+		const response = await fetchOnTab(currentTabId, {
 			url: "https://avatar.roblox.com/v1/avatar/set-player-avatar-type",
 			method: "POST",
 			headers: { "x-csrf-token": this.csrfToken },
@@ -243,12 +249,12 @@ export default class RBXApi {
 	}
 
 	public async setScales(body: SetScalesRequestBody) {
-		const currentTabId = await browser.getCurrentTabId();
+		const currentTabId = await getCurrentTabId();
 		if (!currentTabId) {
 			throw "Cannot make a request without an active tab being present";
 		}
 
-		const response = await browser.fetchOnTab(currentTabId, {
+		const response = await fetchOnTab(currentTabId, {
 			url: "https://avatar.roblox.com/v1/avatar/set-scales",
 			method: "POST",
 			headers: { "x-csrf-token": this.csrfToken },
@@ -261,7 +267,7 @@ export default class RBXApi {
 	}
 
 	public async setWearingAssets(assets: AvatarAccessoryAsset[]) {
-		const currentTabId = await browser.getCurrentTabId();
+		const currentTabId = await getCurrentTabId();
 		if (!currentTabId) {
 			throw "Cannot make a request without an active tab being present";
 		}
@@ -270,7 +276,7 @@ export default class RBXApi {
 			assets: assets
 		}
 
-		const response = await browser.fetchOnTab(currentTabId, {
+		const response = await fetchOnTab(currentTabId, {
 			url: "https://avatar.roblox.com/v2/avatar/set-wearing-assets",
 			method: "POST",
 			headers: { "x-csrf-token": this.csrfToken },
@@ -283,13 +289,13 @@ export default class RBXApi {
 	}
 
 	public async getCurrentAvatar() {
-		const currentTabId = await browser.getCurrentTabId();
+		const currentTabId = await getCurrentTabId();
 		if (!currentTabId) {
 			throw "Cannot make a request without an active tab being present";
 		}
 
-		const response = await browser.fetchOnTab(currentTabId, {
-			url: "https://avatar.roblox.com/v1/avatar",
+		const response = await fetchOnTab(currentTabId, {
+			url: "https://avatar.roblox.com/v2/avatar/avatar",
 			method: "GET",
 			headers: { "x-csrf-token": this.csrfToken },
 			credentials: "include",
@@ -300,13 +306,13 @@ export default class RBXApi {
 	}
 
 	public async getAvatarFromUserId(userId: number) {
-		const currentTabId = await browser.getCurrentTabId();
+		const currentTabId = await getCurrentTabId();
 		if (!currentTabId) {
 			throw "Cannot make a request without an active tab being present";
 		}
 
-		const response = await browser.fetchOnTab(currentTabId, {
-			url: `https://avatar.roblox.com/v1/users/${userId}/avatar`,
+		const response = await fetchOnTab(currentTabId, {
+			url: `https://avatar.roblox.com/v2/avatar/users/${userId}/avatar`,
 			method: "GET",
 			headers: { "x-csrf-token": this.csrfToken },
 			credentials: "include",
@@ -317,12 +323,12 @@ export default class RBXApi {
 	}
 
 	public async getAuthenticatedUser() {
-		const currentTabId = await browser.getCurrentTabId();
+		const currentTabId = await getCurrentTabId();
 		if (!currentTabId) {
 			throw "Cannot make a request without an active tab being present";
 		}
 
-		const response = await browser.fetchOnTab(currentTabId, {
+		const response = await fetchOnTab(currentTabId, {
 			url: "https://users.roblox.com/v1/users/authenticated",
 			method: "GET",
 			headers: { "x-csrf-token": this.csrfToken },
@@ -338,12 +344,12 @@ export default class RBXApi {
 	}
 
 	public async getAvatarThumbnail(userId: number) {
-		const currentTabId = await browser.getCurrentTabId();
+		const currentTabId = await getCurrentTabId();
 		if (!currentTabId) {
 			throw "Cannot make a request without an active tab being present";
 		}
 
-		const response = await browser.fetchOnTab(currentTabId, {
+		const response = await fetchOnTab(currentTabId, {
 			url: `https://thumbnails.roblox.com/v1/users/avatar?userIds=${userId}&size=250x250&format=Png&isCircular=false`,
 			method: "GET",
 			headers: { "x-csrf-token": this.csrfToken },
@@ -360,17 +366,20 @@ export default class RBXApi {
 			}[]
 		};
 
-		return data.data[0].imageUrl;
+		return data.data[0]!.imageUrl;
 	}
 
+	/**
+	 * Returns whether creation was successful or not.
+	 */
 	public async createOutfit(body: V2OutfitsCreateRequestBody) {
-		const currentTabId = await browser.getCurrentTabId();
+		const currentTabId = await getCurrentTabId();
 		if (!currentTabId) {
 			throw "Cannot make a request without an active tab being present";
 		}
 
-		const response = await browser.fetchOnTab(currentTabId, {
-			url: "https://avatar.roblox.com/v2/outfits/create",
+		const response = await fetchOnTab(currentTabId, {
+			url: "https://avatar.roblox.com/v3/outfits/create",
 			method: "POST",
 			headers: { "x-csrf-token": this.csrfToken },
 			body: JSON.stringify(body),
@@ -378,16 +387,17 @@ export default class RBXApi {
 			responseEncoding: "json"
 		});
 	
-		return response;
+		// return response;
+		return response.ok;
 	}
 
 	public async getCatalogAssetDetails(assetIds: number[]) {
-		const currentTabId = await browser.getCurrentTabId();
+		const currentTabId = await getCurrentTabId();
 		if (!currentTabId) {
 			throw "Cannot make a request without an active tab being present";
 		}
 
-		const response = await browser.fetchOnTab(currentTabId, {
+		const response = await fetchOnTab(currentTabId, {
 			url: "https://catalog.roblox.com/v1/catalog/items/details",
 			method: "POST",
 			headers: { "x-csrf-token": this.csrfToken },
@@ -438,7 +448,7 @@ export default class RBXApi {
 	}
 
 	public async getBundleFromAsset(assetId: number): Promise<Result<GetBundleFromAssetResponse["data"], number>> {
-		const currentTabId = await browser.getCurrentTabId();
+		const currentTabId = await getCurrentTabId();
 		if (!currentTabId) {
 			throw "Cannot make a request without an active tab being present";
 		}
@@ -448,7 +458,7 @@ export default class RBXApi {
 			sortOrder: "Asc"
 		});
 
-		const response = await browser.fetchOnTab(currentTabId, {
+		const response = await fetchOnTab(currentTabId, {
 			url: `https://catalog.roblox.com/v1/assets/${assetId}/bundles?${params.toString()}`,
 			method: "GET",
 			headers: { "x-csrf-token": this.csrfToken },
@@ -472,7 +482,7 @@ export default class RBXApi {
 		format: "Png" | "Jpeg",
 		isCircular: boolean,
 	}) {
-		const currentTabId = await browser.getCurrentTabId();
+		const currentTabId = await getCurrentTabId();
 		if (!currentTabId) {
 			throw "Cannot make a request without an active tab being present";
 		}
@@ -485,7 +495,7 @@ export default class RBXApi {
 			isCircular: isCircular.toString()
 		});
 
-		const response = await browser.fetchOnTab(currentTabId, {
+		const response = await fetchOnTab(currentTabId, {
 			url: `https://thumbnails.roblox.com/v1/assets?${params.toString()}`,
 			method: "GET",
 			headers: { "x-csrf-token": this.csrfToken },

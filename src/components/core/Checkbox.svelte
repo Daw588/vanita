@@ -1,5 +1,9 @@
 <script lang="ts">
-	export let checked: boolean;
+	type Props = {
+		checked: boolean
+	}
+
+	let { checked = $bindable() }: Props = $props();
 
 	function toggle() {
 		checked = !checked;
@@ -7,7 +11,7 @@
 </script>
 
 <div class="root" data-checked={checked}>
-	<button class="button" on:click={toggle}>
+	<button class="button" onclick={toggle}>
 		<div class="checkbox">
 			<div class="icon">
 				<span class="material-symbols-rounded">check</span>
@@ -47,7 +51,7 @@
 			all: unset;
 
 			display: flex;
-			cursor: pointer;
+			// cursor: pointer;
 		}
 
 		.checkbox {

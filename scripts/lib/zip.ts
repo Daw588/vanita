@@ -1,11 +1,18 @@
-import childProcess from "node:child_process";
+import fs from "node:fs";
+import archiver from "archiver";
 
-export function zip(inputPath: string, outputPath: string) {
-	if (process.platform == "win32") {
-		childProcess.exec(`Compress-Archive ${inputPath} ${outputPath}`, {
-			"shell":"powershell.exe"
-		});
-	} else {
-		throw "Platform not supported";
-	}
+export function zip(inputPath: string, outputPath: string): Promise<void> {
+	const archive = archiver("zip", { zlib: { level: 9, memLevel: 9 }});
+	const stream = fs.createWriteStream(outputPath);
+
+	return new Promise((resolve, reject) => {
+		archive
+			.directory(inputPath, false)
+			.on("error", err => reject(err))
+			.pipe(stream);
+		
+		stream.on("close", () => resolve());
+
+		archive.finalize();
+	});
 }
